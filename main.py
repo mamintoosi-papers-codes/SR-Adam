@@ -477,8 +477,8 @@ def plot_results(results, optimizers_names):
 
 if __name__ == "__main__":
     # Configuration
-    batch_size = 512  # Large batch size for GPU efficiency
-    num_epochs = 15   # Sufficient epochs for comparison
+    batch_size = 1024  # Large batch size for GPU efficiency
+    num_epochs = 5   # Sufficient epochs for comparison
     
     # Get data loaders
     train_loader, test_loader = get_data_loaders(batch_size=batch_size)
