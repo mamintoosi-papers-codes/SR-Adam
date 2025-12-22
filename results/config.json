@@ -1,0 +1,11 @@
+{
+    "batch_size": 512,
+    "num_epochs": 15,
+    "optimizers": [
+        "SGD",
+        "Momentum",
+        "Adam",
+        "SR-Adam (Fixed)",
+        "SR-Adam (Dynamic)"
+    ]
+}
