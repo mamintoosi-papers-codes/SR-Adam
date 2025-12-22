@@ -4,19 +4,50 @@
     "num_epochs": 20,
     "noise_std": 0.0,
     "optimizers": [
-        "SGD",
-        "Momentum",
-        "Adam",
         "SR-Adam (Fixed, Global)",
         "SR-Adam (Adaptive, Global)",
         "SR-Adam (Adaptive, Local)"
     ],
+    "optimizer_params": {
+        "SR-Adam (Fixed, Global)": {
+            "lr": 0.001,
+            "betas": [
+                0.9,
+                0.999
+            ],
+            "eps": 1e-08,
+            "stein_sigma": 1e-06
+        },
+        "SR-Adam (Adaptive, Global)": {
+            "lr": 0.001,
+            "betas": [
+                0.9,
+                0.999
+            ],
+            "eps": 1e-08,
+            "warmup_steps": 5,
+            "shrink_clip": [
+                0.2,
+                1.0
+            ]
+        },
+        "SR-Adam (Adaptive, Local)": {
+            "lr": 0.001,
+            "betas": [
+                0.9,
+                0.999
+            ],
+            "eps": 1e-08,
+            "warmup_steps": 5,
+            "shrink_clip": [
+                0.1,
+                1.0
+            ]
+        }
+    },
     "final_test_accuracies": {
-        "SGD": 49.33,
-        "Momentum": 72.38,
-        "Adam": 75.48,
-        "SR-Adam (Fixed, Global)": 75.32,
-        "SR-Adam (Adaptive, Global)": 74.6,
-        "SR-Adam (Adaptive, Local)": 74.05
+        "SR-Adam (Fixed, Global)": 66.85,
+        "SR-Adam (Adaptive, Global)": 74.37,
+        "SR-Adam (Adaptive, Local)": 75.05
     }
 }

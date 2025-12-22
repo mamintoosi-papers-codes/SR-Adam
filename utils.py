@@ -80,7 +80,7 @@ def save_intermediate_results(results_dict, optimizer_name, epoch, results_dir):
     df.to_csv(csv_path, index=False)
 
 
-def save_all_results(results, optimizers_names, dataset_name, batch_size, num_epochs, noise_std):
+def save_all_results(results, optimizers_names, dataset_name, batch_size, num_epochs, noise_std, optimizer_params=None):
     """
     Save final results to Excel and JSON config.
     
@@ -121,6 +121,7 @@ def save_all_results(results, optimizers_names, dataset_name, batch_size, num_ep
         'num_epochs': num_epochs,
         'noise_std': noise_std,
         'optimizers': optimizers_names,
+        'optimizer_params': optimizer_params or {},
         'final_test_accuracies': {name: results[i]['test_acc'][-1] for i, name in enumerate(optimizers_names)}
     }
     config_path = os.path.join(folder_name, 'config.json')

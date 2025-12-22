@@ -54,6 +54,29 @@ def set_seeds(seed=42):
     print(f"Random seeds set to {seed}")
 
 
+def parse_optimizer_list(raw, all_names, alias_map):
+    """Parse user-specified optimizer list allowing custom delimiters and aliases."""
+    if raw.lower() == 'all':
+        return all_names
+
+    # Prefer separators that do not conflict with commas inside names
+    for sep in [';', '|', '\n']:
+        if sep in raw:
+            tokens = [t.strip() for t in raw.split(sep) if t.strip()]
+            break
+    else:
+        # Fallback: single token (could still be comma-delimited; advise user to use ';')
+        tokens = [t.strip() for t in raw.split(',') if t.strip()]
+
+    resolved = []
+    for tok in tokens:
+        key = alias_map.get(tok, tok)
+        if key not in all_names:
+            raise ValueError(f"Unknown optimizer requested: {tok}")
+        resolved.append(key)
+    return resolved
+
+
 def create_optimizer(name, model, num_classes):
     """
     Create optimizer instance by name.
@@ -78,13 +101,13 @@ def create_optimizer(name, model, num_classes):
         'SR-Adam (Adaptive, Global)': lambda: SRAdamAdaptiveGlobal(
             model.parameters(),
             lr=1e-3,
-            warmup_steps=20,
+            warmup_steps=5,
             shrink_clip=(0.2, 1.0)
         ),
         'SR-Adam (Adaptive, Local)': lambda: SRAdamAdaptiveLocal(
             model.parameters(), 
             lr=0.001,
-            warmup_steps=20,
+            warmup_steps=5,
             shrink_clip=(0.1, 1.0)
         ),
     }
@@ -111,6 +134,8 @@ def main():
                         help='Standard deviation for Gaussian noise (0.0 for no noise)')
     parser.add_argument('--seed', type=int, default=42, 
                         help='Random seed for reproducibility')
+    parser.add_argument('--optimizers', type=str, default='all',
+                        help='List of optimizers to run or "all"; separate by ";" or "|" when names contain commas')
     
     args = parser.parse_args()
     
@@ -131,7 +156,7 @@ def main():
     print(f"Dataset loaded: {num_classes} classes")
     
     # Define optimizers to test
-    optimizer_names = [
+    all_optimizer_names = [
         'SGD',
         'Momentum',
         'Adam',
@@ -139,6 +164,26 @@ def main():
         'SR-Adam (Adaptive, Global)',
         'SR-Adam (Adaptive, Local)',
     ]
+
+    optimizer_settings = {
+        'SGD': {'lr': 0.01, 'weight_decay': 0},
+        'Momentum': {'lr': 0.01, 'momentum': 0.9, 'weight_decay': 0},
+        'Adam': {'lr': 0.001, 'betas': (0.9, 0.999), 'eps': 1e-8, 'weight_decay': 0},
+        'SR-Adam (Fixed, Global)': {'lr': 0.001, 'betas': (0.9, 0.999), 'eps': 1e-8, 'stein_sigma': 1e-6},
+        'SR-Adam (Adaptive, Global)': {'lr': 0.001, 'betas': (0.9, 0.999), 'eps': 1e-8, 'warmup_steps': 5, 'shrink_clip': (0.2, 1.0)},
+        'SR-Adam (Adaptive, Local)': {'lr': 0.001, 'betas': (0.9, 0.999), 'eps': 1e-8, 'warmup_steps': 5, 'shrink_clip': (0.1, 1.0)},
+    }
+
+    alias_map = {
+        'sgd': 'SGD',
+        'momentum': 'Momentum',
+        'adam': 'Adam',
+        'sradam_fixed': 'SR-Adam (Fixed, Global)',
+        'sradam_global': 'SR-Adam (Adaptive, Global)',
+        'sradam_local': 'SR-Adam (Adaptive, Local)',
+    }
+
+    optimizer_names = parse_optimizer_list(args.optimizers, all_optimizer_names, alias_map)
     
     # Training loop
     results = []
@@ -183,7 +228,8 @@ def main():
         dataset_name=args.dataset,
         batch_size=args.batch_size,
         num_epochs=args.num_epochs,
-        noise_std=args.noise
+        noise_std=args.noise,
+        optimizer_params={name: optimizer_settings[name] for name in optimizer_names}
     )
     
     # Plot results
