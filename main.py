@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
+# import torch.optim as optim
+from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 import torchvision
 import torchvision.transforms as transforms
@@ -14,6 +15,7 @@ from torch.cuda.amp import GradScaler, autocast
 import os
 import pandas as pd
 import json
+import argparse
 
 # Set device for GPU support
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -27,30 +29,306 @@ if torch.cuda.is_available():
 
 # ================== OPTIMIZER DEFINITIONS ==================
 
-class SGD(optim.SGD):
-    """Standard Stochastic Gradient Descent optimizer"""
-    def __init__(self, params, lr=0.01, momentum=0):
-        super().__init__(params, lr=lr, momentum=momentum)
+# ============================================================
+# 1. SGD (Baseline)
+# ============================================================
 
-class Momentum(optim.SGD):
-    """SGD with Momentum optimizer"""
-    def __init__(self, params, lr=0.01, momentum=0.9):
-        super().__init__(params, lr=lr, momentum=momentum)
-
-class Adam(optim.Adam):
-    """Standard Adam optimizer"""
-    def __init__(self, params, lr=0.001, betas=(0.9, 0.999), eps=1e-8):
-        super().__init__(params, lr=lr, betas=betas, eps=eps)
-
-class SRAdamFixed(optim.Optimizer):
+class SGDManual(Optimizer):
     """
-    Stein-Rule Adam with fixed sigma^2 parameter.
-    Applies James-Stein shrinkage globally across all parameters.
+    Vanilla Stochastic Gradient Descent
     """
-    def __init__(self, params, lr=0.001, betas=(0.9, 0.999), eps=1e-8, 
-                 weight_decay=0, stein_sigma_sq=1e-6):  # stein_sigma_sq = sigma^2
+    def __init__(self, params, lr=0.01, weight_decay=0):
+        defaults = dict(lr=lr, weight_decay=weight_decay)
+        super().__init__(params, defaults)
+
+    @torch.no_grad()
+    def step(self, closure=None):
+        loss = None
+        if closure is not None:
+            with torch.enable_grad():
+                loss = closure()
+
+        for group in self.param_groups:
+            lr = group['lr']
+            wd = group['weight_decay']
+
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+
+                grad = p.grad
+                if wd != 0:
+                    grad = grad.add(p, alpha=wd)
+
+                p.add_(grad, alpha=-lr)
+
+        return loss
+
+
+# ============================================================
+# 2. SGD with Momentum (Baseline)
+# ============================================================
+
+class MomentumManual(Optimizer):
+    """
+    SGD with classical heavy-ball momentum
+    """
+    def __init__(self, params, lr=0.01, momentum=0.9, weight_decay=0):
+        defaults = dict(lr=lr, momentum=momentum, weight_decay=weight_decay)
+        super().__init__(params, defaults)
+
+    @torch.no_grad()
+    def step(self, closure=None):
+        loss = None
+        if closure is not None:
+            with torch.enable_grad():
+                loss = closure()
+
+        for group in self.param_groups:
+            lr = group['lr']
+            mu = group['momentum']
+            wd = group['weight_decay']
+
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+
+                grad = p.grad
+                state = self.state[p]
+
+                if len(state) == 0:
+                    state['velocity'] = torch.zeros_like(p)
+
+                v = state['velocity']
+
+                if wd != 0:
+                    grad = grad.add(p, alpha=wd)
+
+                v.mul_(mu).add_(grad)
+                p.add_(v, alpha=-lr)
+
+        return loss
+
+
+# ============================================================
+# 3. Adam (Baseline – manual)
+# ============================================================
+
+class AdamBaseline(Optimizer):
+    """
+    Manual Adam implementation (baseline for fair comparison)
+    """
+    def __init__(self, params, lr=1e-3, betas=(0.9, 0.999),
+                 eps=1e-8, weight_decay=0):
+        defaults = dict(lr=lr, betas=betas,
+                        eps=eps, weight_decay=weight_decay)
+        super().__init__(params, defaults)
+        self.global_step = 0
+
+    @torch.no_grad()
+    def step(self, closure=None):
+        loss = None
+        if closure is not None:
+            with torch.enable_grad():
+                loss = closure()
+
+        self.global_step += 1
+
+        for group in self.param_groups:
+            beta1, beta2 = group['betas']
+            lr = group['lr']
+
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+
+                grad = p.grad
+                state = self.state[p]
+
+                if len(state) == 0:
+                    state['exp_avg'] = torch.zeros_like(p)
+                    state['exp_avg_sq'] = torch.zeros_like(p)
+
+                m, v = state['exp_avg'], state['exp_avg_sq']
+
+                if group['weight_decay'] != 0:
+                    grad = grad.add(p, alpha=group['weight_decay'])
+
+                m.mul_(beta1).add_(grad, alpha=1 - beta1)
+                v.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
+
+                bc1 = 1 - beta1 ** self.global_step
+                bc2 = 1 - beta2 ** self.global_step
+
+                step_size = lr / bc1
+                denom = (v.sqrt() / math.sqrt(bc2)).add_(group['eps'])
+
+                p.addcdiv_(m, denom, value=-step_size)
+
+        return loss
+
+
+# ============================================================
+# 4. SR-Adam (Fixed Sigma, Global)
+# ============================================================
+
+class SRAdamFixedGlobal(Optimizer):
+    """
+    Stein-Rule Adam with fixed sigma^2, global shrinkage
+    """
+    def __init__(self, params, lr=1e-3, betas=(0.9, 0.999),
+                 eps=1e-8, weight_decay=0, stein_sigma=1e-3):
         defaults = dict(lr=lr, betas=betas, eps=eps,
-                        weight_decay=weight_decay, stein_sigma_sq=stein_sigma_sq)
+                        weight_decay=weight_decay,
+                        stein_sigma=stein_sigma)
+        super().__init__(params, defaults)
+        self.global_step = 0
+
+    @torch.no_grad()
+    def step(self, closure=None):
+        loss = None
+        if closure is not None:
+            with torch.enable_grad():
+                loss = closure()
+
+        self.global_step += 1
+
+        grads, moms = [], []
+        for group in self.param_groups:
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+                state = self.state[p]
+                if len(state) == 0:
+                    state['exp_avg'] = torch.zeros_like(p)
+                    state['exp_avg_sq'] = torch.zeros_like(p)
+                grads.append(p.grad.view(-1))
+                moms.append(state['exp_avg'].view(-1))
+
+        g = torch.cat(grads)
+        m = torch.cat(moms)
+
+        if self.global_step > 1:
+            diff = g - m
+            p_dim = g.numel()
+            sigma2 = self.param_groups[0]['stein_sigma']
+            shrink = 1 - (p_dim - 2) * sigma2 / (diff.pow(2).sum() + 1e-12)
+            shrink = torch.clamp(shrink, 0.0, 1.0)
+        else:
+            shrink = 1.0
+
+        for group in self.param_groups:
+            beta1, beta2 = group['betas']
+            lr = group['lr']
+
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+                grad = p.grad
+                state = self.state[p]
+                m_t, v_t = state['exp_avg'], state['exp_avg_sq']
+
+                g_hat = m_t + shrink * (grad - m_t)
+
+                m_t.mul_(beta1).add_(g_hat, alpha=1 - beta1)
+                v_t.mul_(beta2).addcmul_(g_hat, g_hat, value=1 - beta2)
+
+                bc1 = 1 - beta1 ** self.global_step
+                bc2 = 1 - beta2 ** self.global_step
+                step_size = lr / bc1
+                denom = (v_t.sqrt() / math.sqrt(bc2)).add_(group['eps'])
+
+                p.addcdiv_(m_t, denom, value=-step_size)
+
+        return loss
+
+
+# ============================================================
+# 5. SR-Adam (Adaptive Sigma, Global)
+# ============================================================
+
+class SRAdamAdaptiveGlobal(Optimizer):
+    """
+    Stein-Rule Adam with adaptive sigma^2, global shrinkage
+    """
+    def __init__(self, params, lr=1e-3, betas=(0.9, 0.999),
+                 eps=1e-8, weight_decay=0):
+        defaults = dict(lr=lr, betas=betas,
+                        eps=eps, weight_decay=weight_decay)
+        super().__init__(params, defaults)
+        self.global_step = 0
+
+    @torch.no_grad()
+    def step(self, closure=None):
+        loss = None
+        if closure is not None:
+            with torch.enable_grad():
+                loss = closure()
+
+        self.global_step += 1
+
+        grads, moms = [], []
+        for group in self.param_groups:
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+                state = self.state[p]
+                if len(state) == 0:
+                    state['exp_avg'] = torch.zeros_like(p)
+                    state['exp_avg_sq'] = torch.zeros_like(p)
+                grads.append(p.grad.view(-1))
+                moms.append(state['exp_avg'].view(-1))
+
+        g = torch.cat(grads)
+        m = torch.cat(moms)
+
+        if self.global_step > 1:
+            diff = g - m
+            sigma2 = diff.pow(2).mean()
+            p_dim = g.numel()
+            shrink = 1 - (p_dim - 2) * sigma2 / (diff.pow(2).sum() + 1e-12)
+            shrink = torch.clamp(shrink, 0.0, 1.0)
+        else:
+            shrink = 1.0
+
+        for group in self.param_groups:
+            beta1, beta2 = group['betas']
+            lr = group['lr']
+
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+                grad = p.grad
+                state = self.state[p]
+                m_t, v_t = state['exp_avg'], state['exp_avg_sq']
+
+                g_hat = m_t + shrink * (grad - m_t)
+
+                m_t.mul_(beta1).add_(g_hat, alpha=1 - beta1)
+                v_t.mul_(beta2).addcmul_(g_hat, g_hat, value=1 - beta2)
+
+                bc1 = 1 - beta1 ** self.global_step
+                bc2 = 1 - beta2 ** self.global_step
+                step_size = lr / bc1
+                denom = (v_t.sqrt() / math.sqrt(bc2)).add_(group['eps'])
+
+                p.addcdiv_(m_t, denom, value=-step_size)
+
+        return loss
+
+
+# ============================================================
+# 6. SR-Adam (Adaptive Sigma, Local / Group-wise)
+# ============================================================
+
+class SRAdamAdaptiveLocal(Optimizer):
+    """
+    Stein-Rule Adam with adaptive sigma^2, local (per param_group) shrinkage
+    """
+    def __init__(self, params, lr=1e-3, betas=(0.9, 0.999),
+                 eps=1e-8, weight_decay=0):
+        defaults = dict(lr=lr, betas=betas,
+                        eps=eps, weight_decay=weight_decay)
         super().__init__(params, defaults)
 
     @torch.no_grad()
@@ -60,194 +338,76 @@ class SRAdamFixed(optim.Optimizer):
             with torch.enable_grad():
                 loss = closure()
 
-        # Collect all gradients, exp_avg, exp_avg_sq
-        all_grad = []
-        all_exp_avg = []
-        all_exp_avg_sq = []
-        step = None
         for group in self.param_groups:
+            beta1, beta2 = group['betas']
+            lr = group['lr']
+
+            grads, moms = [], []
             for p in group['params']:
                 if p.grad is None:
                     continue
-                all_grad.append(p.grad.view(-1))
-
                 state = self.state[p]
                 if len(state) == 0:
                     state['step'] = 0
-                    state['exp_avg'] = torch.zeros_like(p, memory_format=torch.preserve_format)
-                    state['exp_avg_sq'] = torch.zeros_like(p, memory_format=torch.preserve_format)
+                    state['exp_avg'] = torch.zeros_like(p)
+                    state['exp_avg_sq'] = torch.zeros_like(p)
 
-                all_exp_avg.append(state['exp_avg'].view(-1))
-                all_exp_avg_sq.append(state['exp_avg_sq'].view(-1))
-                if step is None:
-                    step = state['step']
+                grads.append(p.grad.view(-1))
+                moms.append(state['exp_avg'].view(-1))
 
-        if len(all_grad) == 0:
-            return loss
+            if not grads:
+                continue
 
-        all_grad = torch.cat(all_grad)
-        all_exp_avg = torch.cat(all_exp_avg)
-        all_exp_avg_sq = torch.cat(all_exp_avg_sq)
+            g = torch.cat(grads)
+            m = torch.cat(moms)
+            state['step'] += 1
+            step = state['step']
 
-        beta1, beta2 = self.param_groups[0]['betas']  # Assume same for all groups
+            if step > 1:
+                diff = g - m
+                sigma2 = diff.pow(2).mean()
+                p_dim = g.numel()
+                shrink = 1 - (p_dim - 2) * sigma2 / (diff.pow(2).sum() + 1e-12)
+                shrink = torch.clamp(shrink, 0.0, 1.0)
+            else:
+                shrink = 1.0
 
-        # Increment step for all states
-        for group in self.param_groups:
-            for p in group['params']:
-                if p.grad is not None:
-                    self.state[p]['step'] += 1
-
-        step += 1
-
-        if step > 1:
-            p_dim = all_grad.numel()
-            diff = all_grad - all_exp_avg
-            dist_sq = torch.sum(diff * diff).item()
-            stein_sigma_sq = self.param_groups[0]['stein_sigma_sq']
-            numerator = (p_dim - 2) * stein_sigma_sq
-            shrinkage = 1.0 - (numerator / (dist_sq + 1e-10))
-            shrinkage = max(0.0, shrinkage)
-        else:
-            shrinkage = 1.0
-
-        # Apply to each param
-        for group in self.param_groups:
             for p in group['params']:
                 if p.grad is None:
                     continue
-
                 grad = p.grad
                 state = self.state[p]
-                exp_avg = state['exp_avg']
-                exp_avg_sq = state['exp_avg_sq']
+                m_t, v_t = state['exp_avg'], state['exp_avg_sq']
 
-                grad_to_use = exp_avg + shrinkage * (grad - exp_avg) if step > 1 else grad
+                g_hat = m_t + shrink * (grad - m_t)
 
-                if group['weight_decay'] != 0:
-                    grad_to_use = grad_to_use.add(p, alpha=group['weight_decay'])
+                m_t.mul_(beta1).add_(g_hat, alpha=1 - beta1)
+                v_t.mul_(beta2).addcmul_(g_hat, g_hat, value=1 - beta2)
 
-                exp_avg.mul_(beta1).add_(grad_to_use, alpha=1 - beta1)
-                exp_avg_sq.mul_(beta2).addcmul_(grad_to_use, grad_to_use, value=1 - beta2)
+                bc1 = 1 - beta1 ** step
+                bc2 = 1 - beta2 ** step
+                step_size = lr / bc1
+                denom = (v_t.sqrt() / math.sqrt(bc2)).add_(group['eps'])
 
-                bias_correction1 = 1 - beta1 ** step
-                bias_correction2 = 1 - beta2 ** step
-                step_size = group['lr'] / bias_correction1
-
-                denom = (exp_avg_sq.sqrt() / math.sqrt(bias_correction2)).add_(group['eps'])
-                p.addcdiv_(exp_avg, denom, value=-step_size)
+                p.addcdiv_(m_t, denom, value=-step_size)
 
         return loss
 
-class SRAdamDynamic(optim.Optimizer):
-    """
-    Stein-Rule Adam with dynamic noise variance estimation.
-    Estimates noise variance globally using Adam's moment buffers.
-    """
-    def __init__(self, params, lr=0.001, betas=(0.9, 0.999), eps=1e-8, weight_decay=0):
-        defaults = dict(lr=lr, betas=betas, eps=eps, weight_decay=weight_decay)
-        super().__init__(params, defaults)
-
-    @torch.no_grad()
-    def step(self, closure=None):
-        loss = None
-        if closure is not None:
-            with torch.enable_grad():
-                loss = closure()
-
-        # Collect all
-        all_grad = []
-        all_exp_avg = []
-        all_exp_avg_sq = []
-        step = None
-        for group in self.param_groups:
-            for p in group['params']:
-                if p.grad is None:
-                    continue
-                all_grad.append(p.grad.view(-1))
-
-                state = self.state[p]
-                if len(state) == 0:
-                    state['step'] = 0
-                    state['exp_avg'] = torch.zeros_like(p, memory_format=torch.preserve_format)
-                    state['exp_avg_sq'] = torch.zeros_like(p, memory_format=torch.preserve_format)
-
-                all_exp_avg.append(state['exp_avg'].view(-1))
-                all_exp_avg_sq.append(state['exp_avg_sq'].view(-1))
-                if step is None:
-                    step = state['step']
-
-        if len(all_grad) == 0:
-            return loss
-
-        all_grad = torch.cat(all_grad)
-        all_exp_avg = torch.cat(all_exp_avg)
-        all_exp_avg_sq = torch.cat(all_exp_avg_sq)
-
-        beta1, beta2 = self.param_groups[0]['betas']
-
-        # Increment step
-        for group in self.param_groups:
-            for p in group['params']:
-                if p.grad is not None:
-                    self.state[p]['step'] += 1
-
-        step += 1
-
-        if step > 1:
-            p_dim = all_grad.numel()
-            element_wise_var = all_exp_avg_sq - all_exp_avg.pow(2)
-            element_wise_var = torch.clamp(element_wise_var, min=0)
-            dynamic_sigma_sq = element_wise_var.mean().item()
-            diff = all_grad - all_exp_avg
-            dist_sq = torch.sum(diff * diff).item()
-            numerator = (p_dim - 2) * dynamic_sigma_sq
-            shrinkage = 1.0 - (numerator / (dist_sq + 1e-10))
-            shrinkage = max(0.0, shrinkage)
-        else:
-            shrinkage = 1.0
-
-        # Apply
-        for group in self.param_groups:
-            for p in group['params']:
-                if p.grad is None:
-                    continue
-
-                grad = p.grad
-                state = self.state[p]
-                exp_avg = state['exp_avg']
-                exp_avg_sq = state['exp_avg_sq']
-
-                grad_to_use = exp_avg + shrinkage * (grad - exp_avg) if step > 1 else grad
-
-                if group['weight_decay'] != 0:
-                    grad_to_use = grad_to_use.add(p, alpha=group['weight_decay'])
-
-                exp_avg.mul_(beta1).add_(grad_to_use, alpha=1 - beta1)
-                exp_avg_sq.mul_(beta2).addcmul_(grad_to_use, grad_to_use, value=1 - beta2)
-
-                bias_correction1 = 1 - beta1 ** step
-                bias_correction2 = 1 - beta2 ** step
-                step_size = group['lr'] / bias_correction1
-
-                denom = (exp_avg_sq.sqrt() / math.sqrt(bias_correction2)).add_(group['eps'])
-                p.addcdiv_(exp_avg, denom, value=-step_size)
-
-        return loss
 
 # ================== MODEL DEFINITION ==================
 
 class SimpleCNN(nn.Module):
     """
-    Simple Convolutional Neural Network for CIFAR-10 classification.
+    Simple Convolutional Neural Network for classification.
     Architecture: Conv -> ReLU -> MaxPool -> Conv -> ReLU -> MaxPool -> FC -> ReLU -> Dropout -> FC
     """
-    def __init__(self):
+    def __init__(self, num_classes=10):
         super(SimpleCNN, self).__init__()
         self.conv1 = nn.Conv2d(3, 32, kernel_size=3, padding=1)
         self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
         self.pool = nn.MaxPool2d(2, 2)
         self.fc1 = nn.Linear(64 * 8 * 8, 128)
-        self.fc2 = nn.Linear(128, 10)
+        self.fc2 = nn.Linear(128, num_classes)
         self.dropout = nn.Dropout(0.2)
 
     def forward(self, x):
@@ -263,24 +423,50 @@ class SimpleCNN(nn.Module):
 
 # ================== DATA LOADING ==================
 
-def get_data_loaders(batch_size=512):
+class AddGaussianNoise(object):
+    def __init__(self, mean=0., std=0.):
+        self.mean = mean
+        self.std = std
+
+    def __call__(self, tensor):
+        return tensor + torch.randn(tensor.size()) * self.std + self.mean
+
+def get_data_loaders(dataset_name='CIFAR10', batch_size=512, noise_std=0.0):
     """
-    Load CIFAR-10 dataset with optimized settings for GPU.
+    Load dataset with optimized settings for GPU.
+    Supports CIFAR10 or CIFAR100.
     """
-    train_transform = transforms.Compose([
+    if dataset_name == 'CIFAR10':
+        DatasetClass = torchvision.datasets.CIFAR10
+        mean = (0.4914, 0.4822, 0.4465)
+        std = (0.2023, 0.1994, 0.2010)
+        num_classes = 10
+    elif dataset_name == 'CIFAR100':
+        DatasetClass = torchvision.datasets.CIFAR100
+        mean = (0.5071, 0.4867, 0.4408)
+        std = (0.2675, 0.2565, 0.2761)
+        num_classes = 100
+    else:
+        raise ValueError("Unsupported dataset: choose 'CIFAR10' or 'CIFAR100'")
+
+    train_transform_list = [
         transforms.RandomHorizontalFlip(),
         transforms.RandomCrop(32, padding=4),
         transforms.ToTensor(),
-        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-    ])
+        transforms.Normalize(mean, std),
+    ]
+    if noise_std > 0:
+        train_transform_list.append(AddGaussianNoise(mean=0., std=noise_std))
+
+    train_transform = transforms.Compose(train_transform_list)
     
     test_transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+        transforms.Normalize(mean, std),
     ])
     
-    train_set = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=train_transform)
-    test_set = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=test_transform)
+    train_set = DatasetClass(root='./data', train=True, download=True, transform=train_transform)
+    test_set = DatasetClass(root='./data', train=False, download=True, transform=test_transform)
     
     train_loader = DataLoader(
         train_set, 
@@ -298,7 +484,7 @@ def get_data_loaders(batch_size=512):
         pin_memory=True
     )
     
-    return train_loader, test_loader
+    return train_loader, test_loader, num_classes
 
 # ================== TRAINING FUNCTION ==================
 
@@ -433,16 +619,18 @@ def plot_results(results, optimizers_names):
 
 # ================== SAVE RESULTS FUNCTION ==================
 
-def save_results(results, optimizers_names, batch_size, num_epochs):
+def save_results(results, optimizers_names, dataset_name, batch_size, num_epochs, noise_std):
     """
     Save results to a folder with an Excel file (one sheet per optimizer) and a config.json file.
+    Includes dataset_name and noise_std in filenames.
     """
     # Create results folder if it doesn't exist
-    os.makedirs('results', exist_ok=True)
+    folder_name = f"results_{dataset_name}_noise{noise_std}"
+    os.makedirs(folder_name, exist_ok=True)
     
     # Save to Excel
-    excel_filename = f"optimizer_comparison_batch{batch_size}_epochs{num_epochs}.xlsx"
-    excel_path = os.path.join('results', excel_filename)
+    excel_filename = f"optimizer_comparison_{dataset_name}_batch{batch_size}_epochs{num_epochs}_noise{noise_std}.xlsx"
+    excel_path = os.path.join(folder_name, excel_filename)
     
     with pd.ExcelWriter(excel_path) as writer:
         for i, name in enumerate(optimizers_names):
@@ -458,11 +646,13 @@ def save_results(results, optimizers_names, batch_size, num_epochs):
     
     # Save config
     config = {
+        'dataset_name': dataset_name,
         'batch_size': batch_size,
         'num_epochs': num_epochs,
+        'noise_std': noise_std,
         'optimizers': optimizers_names
     }
-    config_path = os.path.join('results', 'config.json')
+    config_path = os.path.join(folder_name, 'config.json')
     with open(config_path, 'w') as f:
         json.dump(config, f, indent=4)
     
@@ -471,18 +661,61 @@ def save_results(results, optimizers_names, batch_size, num_epochs):
 # ================== MAIN EXECUTION ==================
 
 if __name__ == "__main__":
-    batch_size = 512
-    num_epochs = 15
+    parser = argparse.ArgumentParser(description="Train model on CIFAR datasets with various optimizers.")
+    parser.add_argument('--dataset', type=str, default='CIFAR10', choices=['CIFAR10', 'CIFAR100'], help="Dataset to use: CIFAR10 or CIFAR100")
+    parser.add_argument('--batch_size', type=int, default=512, help="Batch size for data loaders")
+    parser.add_argument('--num_epochs', type=int, default=15, help="Number of training epochs")
+    parser.add_argument('--noise', type=float, default=0.0, help="Standard deviation for Gaussian noise (0.0 for no noise)")
+
+    args = parser.parse_args()
+
+    dataset_name = args.dataset
+    batch_size = args.batch_size
+    num_epochs = args.num_epochs
+    noise_std = args.noise
     
-    train_loader, test_loader = get_data_loaders(batch_size=batch_size)
+    train_loader, test_loader, num_classes = get_data_loaders(dataset_name=dataset_name, batch_size=batch_size, noise_std=noise_std)
     
     optimizers = [
-        ('SGD', lambda model: SGD(model.parameters(), lr=0.01)),
-        ('Momentum', lambda model: Momentum(model.parameters(), lr=0.01, momentum=0.9)),
-        ('Adam', lambda model: Adam(model.parameters(), lr=0.001)),
-        ('SR-Adam (Fixed)', lambda model: SRAdamFixed(model.parameters(), lr=0.001, stein_sigma_sq=1e-6)),
-        ('SR-Adam (Dynamic)', lambda model: SRAdamDynamic(model.parameters(), lr=0.001))
+        ('SGD', 
+        lambda model: SGDManual(
+            model.parameters(), 
+            lr=0.01
+        )),
+
+        ('Momentum', 
+        lambda model: MomentumManual(
+            model.parameters(), 
+            lr=0.01, 
+            momentum=0.9
+        )),
+
+        ('Adam', 
+        lambda model: AdamBaseline(
+            model.parameters(), 
+            lr=0.001
+        )),
+
+        ('SR-Adam (Fixed, Global)', 
+        lambda model: SRAdamFixedGlobal(
+            model.parameters(), 
+            lr=0.001, 
+            stein_sigma=1e-6
+        )),
+
+        ('SR-Adam (Adaptive, Global)', 
+        lambda model: SRAdamAdaptiveGlobal(
+            model.parameters(), 
+            lr=0.001
+        )),
+
+        ('SR-Adam (Adaptive, Local)', 
+        lambda model: SRAdamAdaptiveLocal(
+            model.parameters(), 
+            lr=0.001
+        )),
     ]
+
     
     results = []
     optimizers_names = []
@@ -492,7 +725,7 @@ if __name__ == "__main__":
         print(f"Training with {name} optimizer")
         print(f"{'='*60}")
         
-        model = SimpleCNN()
+        model = SimpleCNN(num_classes=num_classes)
         
         criterion = nn.CrossEntropyLoss()
         
@@ -508,7 +741,7 @@ if __name__ == "__main__":
     
     plot_results(results, optimizers_names)
     
-    save_results(results, optimizers_names, batch_size, num_epochs)
+    save_results(results, optimizers_names, dataset_name, batch_size, num_epochs, noise_std)
     
     print(f"\n{'='*60}")
     print("FINAL TEST ACCURACIES")
