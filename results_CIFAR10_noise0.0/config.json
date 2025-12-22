@@ -10,5 +10,13 @@
         "SR-Adam (Fixed, Global)",
         "SR-Adam (Adaptive, Global)",
         "SR-Adam (Adaptive, Local)"
-    ]
+    ],
+    "final_test_accuracies": {
+        "SGD": 49.33,
+        "Momentum": 72.38,
+        "Adam": 75.48,
+        "SR-Adam (Fixed, Global)": 75.32,
+        "SR-Adam (Adaptive, Global)": 74.6,
+        "SR-Adam (Adaptive, Local)": 74.05
+    }
 }

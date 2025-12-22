@@ -31,7 +31,8 @@ from utils import (
     create_results_directory,
     save_all_results,
     plot_results,
-    print_summary
+    print_summary,
+    count_parameters
 )
 
 
@@ -149,6 +150,8 @@ def main():
         
         # Create fresh model
         model = SimpleCNN(num_classes=num_classes)
+        param_count = count_parameters(model)
+        print(f"Trainable parameters: {param_count:,}")
         
         # Create optimizer
         _, optimizer = create_optimizer(optimizer_name, model, num_classes)
