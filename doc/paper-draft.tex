@@ -1,6 +1,17 @@
+\documentclass[journal, onecolumn]{IEEEtran}
+\usepackage{amsmath, amsfonts, amssymb, amsthm}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{bm}
 
 \title{Shrinkage Estimation in High-Dimensional Deep Learning: A Stein-Rule Approach to Stochastic Optimization}
+
+\author{M.Arashi\footnote{Corresponding author. Email: arashi@um.ac.ir} \\
+\textit{Department of Statistics, Faculty of Mathematical Sciences, Ferdowsi University of Mashhad, P. O. Box 1159, Mashhad 91775, Iran}}
+
 \begin{document}
+
+\maketitle
  
 \begin{abstract}
 Deep neural networks operate in parameter spaces of dimension $p \gg 3$, a regime where the classical Maximum Likelihood Estimator (MLE) is known to be inadmissible under quadratic loss. Despite this, standard Stochastic Gradient Descent (SGD) treats the mini-batch gradient as an unbiased, unrestricted estimator of the true gradient. In this paper, we bridge the gap between classical shrinkage estimation and modern deep learning. We propose a Stein-Rule Gradient Estimator that shrinks the noisy stochastic gradient toward a stable Restricted Estimator (the historical momentum) based on a dynamic hypothesis test of signal quality. We further introduce an adaptive noise variance estimator derived from the second moments of the Adam optimizer. The resulting algorithm, Stein-Rule Adam (SR-Adam), theoretically guarantees lower asymptotic distributional risk in gradient estimation, offering a rigorous statistical alternative to heuristic regularization.

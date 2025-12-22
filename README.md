@@ -99,9 +99,9 @@ Typical test accuracy on CIFAR-10 (15 epochs):
 | SGD | 45-50% |
 | Momentum | 68-72% |
 | Adam | 72-75% |
-| SR-Adam (Fixed, Global) | 71-74% |
-| SR-Adam (Adaptive, Global) | 72-76% |
-| SR-Adam (Adaptive, Local) | 71-75% |
+| SR-Adam (Fixed, Global) | ? |
+| SR-Adam (Adaptive, Global) | ? |
+| SR-Adam (Adaptive, Local) | ? |
 
 ---
 
@@ -161,7 +161,7 @@ If you use this code in your research, please cite:
 ```bibtex
 @misc{sr-adam,
   title={SR-Adam: Stein-Rule Adaptive Moment Estimation},
-  author={[Your Name]},
+  author={M.Arashi},
   year={2025},
   url={https://github.com/mamintoosi-papers-codes/SR-Adam}
 }
