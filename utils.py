@@ -7,6 +7,20 @@ import os
 import json
 import pandas as pd
 import matplotlib.pyplot as plt
+import torch
+
+
+def save_multirun_summary(summary_stats, results_dir):
+    """
+    Save mean/std statistics over multiple runs.
+    """
+    import pandas as pd
+    import os
+
+    df = pd.DataFrame.from_dict(summary_stats, orient="index")
+    path = os.path.join(results_dir, "summary_statistics.csv")
+    df.to_csv(path)
+    print(f"Multi-run summary saved to {path}")
 
 
 def count_parameters(model):
@@ -212,6 +226,34 @@ def print_summary(results, optimizers_names):
     
     print("\n" + "=" * 80)
 
+def plot_mean_std(results_per_optimizer, optimizer_names, save_path):
+    """
+    Plot mean ± std test accuracy over epochs.
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
 
-# Import torch only when needed (for checkpoint saving)
-import torch
+    plt.figure(figsize=(10, 6))
+
+    for name in optimizer_names:
+        runs = results_per_optimizer[name]
+        acc = np.array([r["test_acc"] for r in runs])  # [runs, epochs]
+
+        mean = acc.mean(axis=0)
+        std = acc.std(axis=0)
+
+        plt.plot(mean, label=name)
+        plt.fill_between(
+            range(len(mean)),
+            mean - std,
+            mean + std,
+            alpha=0.2
+        )
+
+    plt.xlabel("Epoch")
+    plt.ylabel("Test Accuracy (%)")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300)
+    plt.show()
