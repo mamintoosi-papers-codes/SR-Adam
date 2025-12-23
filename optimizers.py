@@ -97,136 +97,120 @@ class AdamBaseline(Optimizer):
 
 
 # ============================================================
-# 4. SR-Adam (Fixed Sigma, Global, WHITENED)
+# 4. SR-Adam 
 # ============================================================
 
-class SRAdamFixedGlobal(Optimizer):
-    def __init__(self, params, lr=1e-3, betas=(0.9, 0.999),
-                 eps=1e-8, weight_decay=0, stein_sigma=1e-3):
-        defaults = dict(lr=lr, betas=betas, eps=eps,
-                        weight_decay=weight_decay, stein_sigma=stein_sigma)
+class SRAdamAdaptiveLocal(Optimizer):
+    """
+    SR-Adam (Adaptive, Local, Whitened)
+
+    - Stein shrinkage applied ONLY if group['stein'] == True
+    - Shrinkage computed in Adam-whitened space
+    - Local (per param_group) statistics
+    - Warm-up + clipping for stability
+    """
+
+    def __init__(
+        self,
+        params,
+        lr=1e-3,
+        betas=(0.9, 0.999),
+        eps=1e-8,
+        weight_decay=0.0,
+        warmup_steps=20,
+        shrink_clip=(0.1, 1.0),
+    ):
+        defaults = dict(
+            lr=lr,
+            betas=betas,
+            eps=eps,
+            weight_decay=weight_decay,
+            warmup_steps=warmup_steps,
+            shrink_clip=shrink_clip,
+            stein=True,   # default
+        )
         super().__init__(params, defaults)
-        self.step_count = 0
 
     @torch.no_grad()
     def step(self, closure=None):
-        loss = closure() if closure else None
-        self.step_count += 1
+        loss = None
+        if closure is not None:
+            with torch.enable_grad():
+                loss = closure()
 
-        # ---- collect global whitened stats ----
-        gw, mw = [], []
         for group in self.param_groups:
+            beta1, beta2 = group['betas']
+            lr = group['lr']
+            eps = group['eps']
+            stein_on = group.get('stein', True)
+            warmup = group['warmup_steps']
+            clip_lo, clip_hi = group['shrink_clip']
+
+            if 'step' not in group:
+                group['step'] = 0
+            group['step'] += 1
+            step = group['step']
+
+            grads, m_list, v_list = [], [], []
+
             for p in group['params']:
                 if p.grad is None:
                     continue
+
                 state = self.state[p]
                 if len(state) == 0:
-                    state['m'] = torch.zeros_like(p)
-                    state['v'] = torch.zeros_like(p)
-                m, v = state['m'], state['v']
-                denom = v.sqrt().add_(group['eps'])
-                gw.append((p.grad / denom).view(-1))
-                mw.append((m / denom).view(-1))
+                    state['exp_avg'] = torch.zeros_like(p)
+                    state['exp_avg_sq'] = torch.zeros_like(p)
 
-        if self.step_count > 1:
-            g = torch.cat(gw)
-            m = torch.cat(mw)
-            diff = g - m
-            p_dim = g.numel()
-            sigma2 = self.param_groups[0]['stein_sigma']
-            shrink = 1 - (p_dim - 2) * sigma2 / (diff.pow(2).sum() + 1e-12)
-            shrink = torch.clamp(shrink, 0.0, 1.0)
-        else:
-            shrink = 1.0
+                grads.append(p.grad.view(-1))
+                m_list.append(state['exp_avg'].view(-1))
+                v_list.append(state['exp_avg_sq'].view(-1))
 
-        # ---- Adam update ----
-        for group in self.param_groups:
-            b1, b2 = group['betas']
+            if not grads:
+                continue
+
+            g = torch.cat(grads)
+            m = torch.cat(m_list)
+            v = torch.cat(v_list)
+
+            # -------- Adam-whitened Stein shrinkage --------
+            if (not stein_on) or (step <= warmup):
+                shrink = 1.0
+            else:
+                # whitened quantities
+                denom = (v.sqrt() + eps)
+                g_w = g / denom
+                m_w = m / denom
+
+                sigma2 = (g_w - m_w).pow(2).mean().item()
+                dist_sq = (g_w - m_w).pow(2).sum().item()
+                p_dim = g_w.numel()
+
+                raw = 1.0 - ((p_dim - 2) * sigma2) / (dist_sq + 1e-12)
+                shrink = max(clip_lo, min(clip_hi, raw))
+
+            # -------- Apply Adam update --------
             for p in group['params']:
                 if p.grad is None:
                     continue
+
+                grad = p.grad
                 state = self.state[p]
-                m, v = state['m'], state['v']
-                g = p.grad
+                m_t, v_t = state['exp_avg'], state['exp_avg_sq']
 
-                v.mul_(b2).addcmul_(g, g, value=1 - b2)
-                denom = v.sqrt().add_(group['eps'])
+                g_hat = m_t + shrink * (grad - m_t)
 
-                g_hat = m + shrink * (g - m)
-                m.mul_(b1).add_(g_hat, alpha=1 - b1)
+                if group['weight_decay'] != 0:
+                    g_hat = g_hat.add(p, alpha=group['weight_decay'])
 
-                m_hat = m / (1 - b1 ** self.step_count)
-                v_hat = v / (1 - b2 ** self.step_count)
+                m_t.mul_(beta1).add_(g_hat, alpha=1 - beta1)
+                v_t.mul_(beta2).addcmul_(g_hat, g_hat, value=1 - beta2)
 
-                p.addcdiv_(m_hat, v_hat.sqrt().add_(group['eps']),
-                           value=-group['lr'])
+                bc1 = 1 - beta1 ** step
+                bc2 = 1 - beta2 ** step
+                step_size = lr * math.sqrt(bc2) / bc1
+
+                denom = v_t.sqrt().add_(eps)
+                p.addcdiv_(m_t, denom, value=-step_size)
+
         return loss
-
-
-# ============================================================
-# 5. SR-Adam (Adaptive Sigma, Global, WHITENED)
-# ============================================================
-
-class SRAdamAdaptiveGlobal(Optimizer):
-    def __init__(self, params, lr=1e-3, betas=(0.9, 0.999),
-                 eps=1e-8, weight_decay=0,
-                 warmup_steps=20, shrink_clip=(0.1, 1.0)):
-        defaults = dict(lr=lr, betas=betas, eps=eps,
-                        weight_decay=weight_decay,
-                        warmup_steps=warmup_steps,
-                        shrink_clip=shrink_clip)
-        super().__init__(params, defaults)
-        self.step_count = 0
-
-    @torch.no_grad()
-    def step(self, closure=None):
-        loss = closure() if closure else None
-        self.step_count += 1
-
-        gw, mw, vw = [], [], []
-        for group in self.param_groups:
-            for p in group['params']:
-                if p.grad is None:
-                    continue
-                state = self.state[p]
-                if len(state) == 0:
-                    state['m'] = torch.zeros_like(p)
-                    state['v'] = torch.zeros_like(p)
-                m, v = state['m'], state['v']
-                denom = v.sqrt().add_(group['eps'])
-                gw.append((p.grad / denom).view(-1))
-                mw.append((m / denom).view(-1))
-                vw.append((v / denom.pow(2)).view(-1))
-
-        if self.step_count <= self.param_groups[0]['warmup_steps']:
-            shrink = 1.0
-        else:
-            g = torch.cat(gw)
-            m = torch.cat(mw)
-            v = torch.cat(vw)
-            sigma2 = (v - m.pow(2)).clamp(min=0).mean().item()
-            diff = g - m
-            raw = 1 - (g.numel() - 2) * sigma2 / (diff.pow(2).sum() + 1e-12)
-            lo, hi = self.param_groups[0]['shrink_clip']
-            shrink = max(lo, min(hi, raw))
-
-        # Adam update
-        for group in self.param_groups:
-            b1, b2 = group['betas']
-            for p in group['params']:
-                if p.grad is None:
-                    continue
-                state = self.state[p]
-                m, v = state['m'], state['v']
-                g = p.grad
-                v.mul_(b2).addcmul_(g, g, value=1 - b2)
-                g_hat = m + shrink * (g - m)
-                m.mul_(b1).add_(g_hat, alpha=1 - b1)
-
-                m_hat = m / (1 - b1 ** self.step_count)
-                v_hat = v / (1 - b2 ** self.step_count)
-
-                p.addcdiv_(m_hat, v_hat.sqrt().add_(group['eps']),
-                           value=-group['lr'])
-        return loss
-
