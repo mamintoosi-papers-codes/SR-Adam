@@ -23,7 +23,7 @@ class AddGaussianNoise(object):
         return self.__class__.__name__ + f'(mean={self.mean}, std={self.std})'
 
 
-def get_data_loaders(dataset_name='CIFAR10', batch_size=512, noise_std=0.0, num_workers=8):
+def get_data_loaders(dataset_name='CIFAR10', batch_size=512, noise_std=0.0, num_workers=0):
     """
     Load dataset with optimized settings for GPU.
     
