@@ -22,7 +22,7 @@ from optimizers import (
     SRAdamAdaptiveLocal
 )
 
-from model import SimpleCNN
+from model import SimpleCNN, get_model
 from data import get_data_loaders
 from training import train_model
 from utils import (
@@ -80,6 +80,10 @@ def parse_optimizer_list(raw, all_names, alias_map):
 # ----------------------------------------------------------------------
 
 def create_optimizer(name, model):
+    """
+    Create optimizer for given model.
+    For SR-Adam, automatically detects Conv layers and applies Stein-rule only to them.
+    """
     if name == "SGD":
         return SGDManual(model.parameters(), lr=0.01)
 
@@ -90,13 +94,25 @@ def create_optimizer(name, model):
         return AdamBaseline(model.parameters(), lr=1e-3)
 
     if name == "SR-Adam (Conv-only, Adaptive)":
+        # Separate Conv layers from others
+        conv_params = []
+        other_params = []
+        
+        for name_param, param in model.named_parameters():
+            # Check if parameter belongs to Conv layer
+            if 'conv' in name_param.lower() or 'downsample.0' in name_param:
+                conv_params.append(param)
+            else:
+                other_params.append(param)
+        
+        # Create parameter groups: Conv with Stein, others without
+        param_groups = [
+            {"params": conv_params, "stein": True},
+            {"params": other_params, "stein": False},
+        ]
+        
         return SRAdamAdaptiveLocal(
-            [
-                {"params": model.conv1.parameters(), "stein": True},
-                {"params": model.conv2.parameters(), "stein": True},
-                {"params": model.fc1.parameters(), "stein": False},
-                {"params": model.fc2.parameters(), "stein": False},
-            ],
+            param_groups,
             lr=1e-3,
             warmup_steps=5,
             shrink_clip=(0.1, 1.0),
@@ -116,6 +132,9 @@ def main():
 
     parser.add_argument("--dataset", type=str, default="CIFAR10",
                         choices=["CIFAR10", "CIFAR100"])
+    parser.add_argument("--model", type=str, default="simplecnn",
+                        choices=["simplecnn", "resnet18"],
+                        help="Model architecture to use")
     parser.add_argument("--batch_size", type=int, default=2048)
     parser.add_argument("--num_epochs", type=int, default=20)
     parser.add_argument("--noise", type=float, default=0.0)
@@ -183,8 +202,8 @@ def main():
             print(f"\nRun {run + 1}/{args.num_runs} | seed = {seed}")
             set_seeds(seed)
 
-            model = SimpleCNN(num_classes=num_classes).to(device)
-            print(f"Trainable parameters: {count_parameters(model):,}")
+            model = get_model(args.model, num_classes=num_classes).to(device)
+            print(f"Model: {args.model} | Trainable parameters: {count_parameters(model):,}")
 
             optimizer = create_optimizer(opt_name, model)
             criterion = nn.CrossEntropyLoss()

@@ -1,11 +1,12 @@
 """
 Module: model.py
-Description: Model definitions (SimpleCNN)
+Description: Model definitions (SimpleCNN, ResNet-18)
 """
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torchvision.models as models
 
 
 class SimpleCNN(nn.Module):
@@ -41,3 +42,53 @@ class SimpleCNN(nn.Module):
         x = self.dropout(x)
         x = self.fc2(x)
         return x
+
+
+def get_resnet18(num_classes=10, pretrained=False):
+    """
+    Returns a ResNet-18 model adapted for CIFAR datasets.
+    
+    Args:
+        num_classes: Number of output classes (10 for CIFAR-10, 100 for CIFAR-100)
+        pretrained: Whether to load ImageNet pretrained weights (default: False)
+    
+    Returns:
+        ResNet-18 model with modified final layer for num_classes
+    
+    Note:
+        - ResNet-18 has ~11M parameters (44x larger than SimpleCNN)
+        - Original designed for ImageNet (224x224), works well on CIFAR (32x32)
+        - Final FC layer adapted from 1000 classes → num_classes
+    """
+    model = models.resnet18(pretrained=pretrained)
+    
+    # Replace final fully connected layer
+    # ResNet-18 final layer: Linear(512, 1000) → Linear(512, num_classes)
+    model.fc = nn.Linear(512, num_classes)
+    
+    return model
+
+
+def get_model(model_name, num_classes=10):
+    """
+    Factory function to create models.
+    
+    Args:
+        model_name (str): 'simplecnn' or 'resnet18'
+        num_classes (int): Number of output classes
+        
+    Returns:
+        nn.Module: The requested model
+    """
+    if model_name.lower() == "simplecnn":
+        return SimpleCNN(num_classes=num_classes)
+    
+    elif model_name.lower() == "resnet18":
+        # Use torchvision's ResNet-18 (without pretrained weights)
+        model = models.resnet18(pretrained=False)
+        # Adjust final layer for num_classes
+        model.fc = nn.Linear(512, num_classes)
+        return model
+    
+    else:
+        raise ValueError(f"Unknown model: {model_name}. Choose 'simplecnn' or 'resnet18'")
