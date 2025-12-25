@@ -82,7 +82,7 @@ def parse_optimizer_list(raw, all_names, alias_map):
 def create_optimizer(name, model):
     """
     Create optimizer for given model.
-    For SR-Adam, automatically detects Conv layers and applies Stein-rule only to them.
+    For SR-Adam, detect Conv2d modules programmatically and apply Stein-rule only to their params.
     """
     if name == "SGD":
         return SGDManual(model.parameters(), lr=0.01)
@@ -94,23 +94,29 @@ def create_optimizer(name, model):
         return AdamBaseline(model.parameters(), lr=1e-3)
 
     if name == "SR-Adam (Conv-only, Adaptive)":
-        # Separate Conv layers from others
+        # Collect parameters belonging to nn.Conv2d modules (robust for ResNet downsample, etc.)
+        conv_params_set = set()
+        for module in model.modules():
+            # Use explicit type check to avoid relying on parameter names
+            if isinstance(module, nn.Conv2d):
+                for p in module.parameters(recurse=False):
+                    conv_params_set.add(p)
+
         conv_params = []
         other_params = []
-        
-        for name_param, param in model.named_parameters():
-            # Check if parameter belongs to Conv layer
-            if 'conv' in name_param.lower() or 'downsample.0' in name_param:
-                conv_params.append(param)
+        for p in model.parameters():
+            if p in conv_params_set:
+                conv_params.append(p)
             else:
-                other_params.append(param)
-        
+                other_params.append(p)
+
         # Create parameter groups: Conv with Stein, others without
-        param_groups = [
-            {"params": conv_params, "stein": True},
-            {"params": other_params, "stein": False},
-        ]
-        
+        param_groups = []
+        if conv_params:
+            param_groups.append({"params": conv_params, "stein": True})
+        if other_params:
+            param_groups.append({"params": other_params, "stein": False})
+
         return SRAdamAdaptiveLocal(
             param_groups,
             lr=1e-3,
