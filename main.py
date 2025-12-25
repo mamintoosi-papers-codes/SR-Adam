@@ -312,11 +312,26 @@ def main():
     print("FINAL GRID SUMMARY (mean ± std over runs)")
     print("=" * 80)
     for key, stats in summary_stats.items():
-        print(
-            f"{key}: "
-            f"{stats['final_mean']:.2f} ± {stats['final_std']:.2f} "
-            f"(best: {stats['best_mean']:.2f} ± {stats['best_std']:.2f})"
-        )
+        # Skip non-summary entries (e.g., dataset-level containers)
+        if not isinstance(stats, dict):
+            continue
+
+        if 'final_mean' in stats:
+            print(
+                f"{key}: "
+                f"{stats['final_mean']:.2f} ± {stats['final_std']:.2f} "
+                f"(best: {stats['best_mean']:.2f} ± {stats['best_std']:.2f})"
+            )
+        elif 'noise_table' in stats:
+            # Print noise-vs-accuracy table for this dataset|model key
+            print(f"\nNoise summary for {key}:")
+            for opt_name, entries in stats['noise_table'].items():
+                print(f"  Optimizer: {opt_name}")
+                for e in entries:
+                    print(f"    noise={e['noise']}: {e['final_mean']:.2f} ± {e['final_std']:.2f}")
+        else:
+            # Unknown dict shape; skip
+            continue
 
 if __name__ == "__main__":
     main()
