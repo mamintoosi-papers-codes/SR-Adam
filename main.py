@@ -32,7 +32,9 @@ from utils import (
     print_summary,
     count_parameters,
     save_multirun_summary,
-    plot_mean_std
+    plot_mean_std,
+    save_run_metrics,
+    aggregate_runs_and_save,
 )
 
 
@@ -93,7 +95,7 @@ def create_optimizer(name, model):
     if name == "Adam":
         return AdamBaseline(model.parameters(), lr=1e-3)
 
-    if name == "SR-Adam (Conv-only, Adaptive)":
+    if name == "SR-Adam":
         # Collect parameters belonging to nn.Conv2d modules (robust for ResNet downsample, etc.)
         conv_params_set = set()
         for module in model.modules():
@@ -136,11 +138,12 @@ def main():
         description="Multi-run SR-Adam experiments on CIFAR datasets"
     )
 
-    parser.add_argument("--dataset", type=str, default="CIFAR10",
-                        choices=["CIFAR10", "CIFAR100"])
-    parser.add_argument("--model", type=str, default="simplecnn",
-                        choices=["simplecnn", "resnet18"],
-                        help="Model architecture to use")
+    parser.add_argument("--dataset", type=str, default="ALL",
+                        choices=["ALL", "CIFAR10", "CIFAR100"],
+                        help="Dataset to run (use ALL to run both CIFAR10 and CIFAR100)")
+    parser.add_argument("--model", type=str, default=None,
+                        choices=[None, "simplecnn", "resnet18"],
+                        help="Model architecture to use (overrides default per-dataset)")
     parser.add_argument("--batch_size", type=int, default=2048)
     parser.add_argument("--num_epochs", type=int, default=20)
     parser.add_argument("--noise", type=float, default=0.0)
@@ -152,42 +155,37 @@ def main():
     parser.add_argument(
         "--optimizers",
         type=str,
-        default="all",
-        help='Optimizer list or "all"; separate with "|" or ";"'
+        default="ALL",
+        help='Optimizer list or "ALL" (case-insensitive); separate multiple with "|" or ";"'
     )
 
     args = parser.parse_args()
 
     device = setup_device()
 
-    results_dir = create_results_directory(args.dataset, args.noise)
+    # Decide dataset list and noise grid
+    if args.dataset == "ALL":
+        dataset_list = ["CIFAR10", "CIFAR100"]
+    else:
+        dataset_list = [args.dataset]
 
-    print(f"\nLoading dataset: {args.dataset}")
-    train_loader, test_loader, num_classes = get_data_loaders(
-        dataset_name=args.dataset,
-        batch_size=args.batch_size,
-        noise_std=args.noise
-    )
+    noise_levels = [0.0, 0.05, 0.1]
 
     all_optimizer_names = [
         "SGD",
         "Momentum",
         "Adam",
-        "SR-Adam (Conv-only, Adaptive)",
+        "SR-Adam",
     ]
 
     alias_map = {
         "sgd": "SGD",
         "momentum": "Momentum",
         "adam": "Adam",
-        "sradam": "SR-Adam (Conv-only, Adaptive)",
+        "sradam": "SR-Adam",
     }
 
-    optimizer_names = parse_optimizer_list(
-        args.optimizers,
-        all_optimizer_names,
-        alias_map
-    )
+    optimizer_names = parse_optimizer_list(args.optimizers, all_optimizer_names, alias_map)
 
     # ------------------------------------------------------------------
     # Multi-run experiments
@@ -196,91 +194,129 @@ def main():
     all_results = {}      # optimizer -> list of run metrics
     summary_stats = {}    # optimizer -> mean/std statistics
 
-    for opt_name in optimizer_names:
-        print("\n" + "=" * 80)
-        print(f"Optimizer: {opt_name}")
-        print("=" * 80)
+    # Iterate dataset x noise x optimizer grid
+    for dataset_name in dataset_list:
+        for noise in noise_levels:
+            print(f"\n=== Dataset: {dataset_name} | Noise: {noise} ===")
 
-        all_results[opt_name] = []
+            # select model per dataset unless overridden
+            if args.model:
+                model_name = args.model
+            else:
+                model_name = 'simplecnn' if dataset_name == 'CIFAR10' else 'resnet18'
 
-        for run in range(args.num_runs):
-            seed = args.base_seed + run
-            print(f"\nRun {run + 1}/{args.num_runs} | seed = {seed}")
-            set_seeds(seed)
+            print(f"Using model: {model_name}")
 
-            model = get_model(args.model, num_classes=num_classes).to(device)
-            print(f"Model: {args.model} | Trainable parameters: {count_parameters(model):,}")
-
-            optimizer = create_optimizer(opt_name, model)
-            criterion = nn.CrossEntropyLoss()
-
-            metrics = train_model(
-                model=model,
-                train_loader=train_loader,
-                test_loader=test_loader,
-                optimizer=optimizer,
-                criterion=criterion,
-                num_epochs=args.num_epochs,
-                device=device,
+            # Load data for this dataset/noise
+            train_loader, test_loader, num_classes = get_data_loaders(
+                dataset_name=dataset_name,
+                batch_size=args.batch_size,
+                noise_std=noise
             )
 
-            metrics["seed"] = seed
-            all_results[opt_name].append(metrics)
+            # Prepare container for plotting epoch mean/std across optimizers
+            results_per_optimizer = {}
 
-        # ---- compute statistics for this optimizer ----
-        final_accs = [m["test_acc"][-1] for m in all_results[opt_name]]
-        best_accs = [max(m["test_acc"]) for m in all_results[opt_name]]
+            for opt_name in optimizer_names:
+                print("\n" + "=" * 80)
+                print(f"Optimizer: {opt_name}")
+                print("=" * 80)
 
-        summary_stats[opt_name] = {
-            "final_mean": float(np.mean(final_accs)),
-            "final_std": float(np.std(final_accs)),
-            "best_mean": float(np.mean(best_accs)),
-            "best_std": float(np.std(best_accs)),
-            "num_runs": args.num_runs,
-        }
+                all_results_for_opt = []
+
+                for run in range(args.num_runs):
+                    seed = args.base_seed + run
+                    print(f"\nRun {run + 1}/{args.num_runs} | seed = {seed}")
+                    set_seeds(seed)
+
+                    model = get_model(model_name, num_classes=num_classes).to(device)
+                    print(f"Model params: {count_parameters(model):,}")
+
+                    optimizer = create_optimizer(opt_name, model)
+                    criterion = nn.CrossEntropyLoss()
+
+                    metrics = train_model(
+                        model=model,
+                        train_loader=train_loader,
+                        test_loader=test_loader,
+                        optimizer=optimizer,
+                        criterion=criterion,
+                        num_epochs=args.num_epochs,
+                        device=device,
+                    )
+
+                    metrics["seed"] = seed
+                    all_results_for_opt.append(metrics)
+
+                    # Save per-run CSV + meta
+                    save_run_metrics(metrics, dataset_name, model_name, noise, opt_name, run + 1)
+
+                # Aggregate runs for this optimizer/dataset/noise
+                try:
+                    summary_path, excel_path = aggregate_runs_and_save(dataset_name, model_name, noise, opt_name)
+                    print(f"Aggregated results saved: {summary_path}, {excel_path}")
+                except Exception as e:
+                    print(f"Aggregation failed: {e}")
+
+                # Compute and store summary stats for reporting across grid
+                final_accs = [m['test_acc'][-1] for m in all_results_for_opt]
+                best_accs = [max(m['test_acc']) for m in all_results_for_opt]
+
+                summary_stats_key = f"{dataset_name}|noise_{noise}|{opt_name}"
+                summary_stats[summary_stats_key] = {
+                    'final_mean': float(np.mean(final_accs)),
+                    'final_std': float(np.std(final_accs)),
+                    'best_mean': float(np.mean(best_accs)),
+                    'best_std': float(np.std(best_accs)),
+                    'num_runs': args.num_runs,
+                }
+
+                # keep runs for plotting per-epoch mean/std
+                results_per_optimizer[opt_name] = all_results_for_opt
+
+                # accumulate per-dataset noise summary for later noise-vs-accuracy plot
+                # initialize container at dataset level if missing
+                dataset_level_key = f"{dataset_name}|{model_name}"
+                if dataset_level_key not in summary_stats:
+                    summary_stats[dataset_level_key] = {}
+                if 'noise_table' not in summary_stats[dataset_level_key]:
+                    summary_stats[dataset_level_key]['noise_table'] = {}
+                if opt_name not in summary_stats[dataset_level_key]['noise_table']:
+                    summary_stats[dataset_level_key]['noise_table'][opt_name] = []
+                summary_stats[dataset_level_key]['noise_table'][opt_name].append({
+                    'noise': noise,
+                    'final_mean': summary_stats[summary_stats_key]['final_mean'],
+                    'final_std': summary_stats[summary_stats_key]['final_std']
+                })
+
+            # After all optimizers for this dataset+noise: plot epoch mean ± std
+            try:
+                save_folder = os.path.join('results', dataset_name, model_name, f'noise_{noise}')
+                os.makedirs(save_folder, exist_ok=True)
+                plot_mean_std(results_per_optimizer, list(results_per_optimizer.keys()),
+                              save_path=os.path.join(save_folder, 'test_acc_epoch_mean_std.png'))
+                print(f"Saved epoch mean/std plot to {save_folder}")
+            except Exception as e:
+                print(f"Failed to plot epoch mean/std: {e}")
 
     # ------------------------------------------------------------------
     # Save results
     # ------------------------------------------------------------------
 
-    os.makedirs(results_dir, exist_ok=True)
+    # Save global summary of all grid experiments
+    os.makedirs('results', exist_ok=True)
+    save_multirun_summary(summary_stats, 'results')
 
-    # Save per-run results (reuse existing utility for first run curves)
-    representative_results = [all_results[name][0] for name in optimizer_names]
-
-    save_all_results(
-        results=representative_results,
-        optimizers_names=optimizer_names,
-        dataset_name=args.dataset,
-        batch_size=args.batch_size,
-        num_epochs=args.num_epochs,
-        noise_std=args.noise,
-        optimizer_params=summary_stats,
-    )
-
-    # Save summary statistics explicitly
-    save_multirun_summary(summary_stats, results_dir)
-
-
-    # Plot representative curves
-    plot_results(
-        representative_results,
-        optimizer_names,
-        save_path=f"{results_dir}/optimizer_comparison.png",
-    )
-
-    # Print concise summary
+    # Print concise summary for all grid entries
     print("\n" + "=" * 80)
-    print("FINAL SUMMARY (mean ± std over runs)")
+    print("FINAL GRID SUMMARY (mean ± std over runs)")
     print("=" * 80)
-    for name, stats in summary_stats.items():
+    for key, stats in summary_stats.items():
         print(
-            f"{name}: "
+            f"{key}: "
             f"{stats['final_mean']:.2f} ± {stats['final_std']:.2f} "
             f"(best: {stats['best_mean']:.2f} ± {stats['best_std']:.2f})"
         )
-
-    # plot_mean_std(results_per_optimizer, optimizer_names, save_path)
 
 if __name__ == "__main__":
     main()

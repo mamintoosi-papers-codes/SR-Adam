@@ -5,7 +5,10 @@ Description: Utility functions for saving/loading results and visualization
 
 import os
 import json
+import glob
+import time
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import torch
 
@@ -21,6 +24,98 @@ def save_multirun_summary(summary_stats, results_dir):
     path = os.path.join(results_dir, "summary_statistics.csv")
     df.to_csv(path)
     print(f"Multi-run summary saved to {path}")
+
+
+def save_run_metrics(metrics, dataset, model, noise, optimizer_name, run_id, base_dir='results'):
+    """Save a single run's metrics as CSV and metadata JSON.
+
+    Path: results/{dataset}/{model}/noise_{noise}/{optimizer_name}/run_{run_id}.csv
+    """
+    folder = os.path.join(base_dir, dataset, model, f"noise_{noise}", optimizer_name)
+    os.makedirs(folder, exist_ok=True)
+
+    csv_path = os.path.join(folder, f"run_{run_id}.csv")
+    # Avoid overwriting existing run files
+    if os.path.exists(csv_path):
+        csv_path = os.path.join(folder, f"run_{run_id}_{int(time.time())}.csv")
+    df = pd.DataFrame({
+        'Epoch': list(range(1, len(metrics['test_acc']) + 1)),
+        'Train Loss': metrics['train_loss'],
+        'Test Loss': metrics['test_loss'],
+        'Train Acc': metrics['train_acc'],
+        'Test Acc': metrics['test_acc'],
+        'Epoch Time': metrics['epoch_time']
+    })
+    df.to_csv(csv_path, index=False)
+
+    meta = {
+        'dataset': dataset,
+        'model': model,
+        'noise': noise,
+        'optimizer': optimizer_name,
+        'run_id': run_id,
+        'final_test_acc': float(metrics['test_acc'][-1]),
+        'best_test_acc': float(max(metrics['test_acc']))
+    }
+    with open(os.path.join(folder, f"run_{run_id}_meta.json"), 'w') as f:
+        json.dump(meta, f, indent=2)
+
+    return csv_path
+
+
+def aggregate_runs_and_save(dataset, model, noise, optimizer_name, base_dir='results'):
+    """Aggregate all run CSVs for an optimizer and save summary JSON and Excel.
+
+    Expects files: results/{dataset}/{model}/noise_{noise}/{optimizer_name}/run_{k}.csv
+    """
+    folder = os.path.join(base_dir, dataset, model, f"noise_{noise}", optimizer_name)
+    pattern = os.path.join(folder, "run_*.csv")
+    files = sorted(glob.glob(pattern))
+    if not files:
+        raise FileNotFoundError(f"No run CSV files found in {folder}")
+
+    runs = [pd.read_csv(f) for f in files]
+
+    # Final and best accuracies across runs
+    final_accs = [float(r['Test Acc'].iloc[-1]) for r in runs]
+    best_accs = [float(r['Test Acc'].max()) for r in runs]
+
+    summary = {
+        'num_runs': len(runs),
+        'final_test_acc_mean': float(np.mean(final_accs)),
+        'final_test_acc_std': float(np.std(final_accs, ddof=0)),
+        'best_test_acc_mean': float(np.mean(best_accs)),
+        'best_test_acc_std': float(np.std(best_accs, ddof=0)),
+    }
+
+    # Save summary JSON
+    summary_path = os.path.join(folder, 'aggregated_summary.json')
+    with open(summary_path, 'w') as f:
+        json.dump(summary, f, indent=2)
+
+    # Save per-epoch aggregated mean/std for Test Acc
+    acc_arrays = [r['Test Acc'].values for r in runs]
+    # pad to same length if necessary
+    max_len = max(len(a) for a in acc_arrays)
+    acc_mat = np.zeros((len(acc_arrays), max_len), dtype=float)
+    for i, a in enumerate(acc_arrays):
+        acc_mat[i, :len(a)] = a
+
+    epoch_idx = list(range(1, max_len + 1))
+    mean = acc_mat.mean(axis=0)
+    std = acc_mat.std(axis=0)
+    df_epoch = pd.DataFrame({'Epoch': epoch_idx, 'Test Acc Mean': mean, 'Test Acc Std': std})
+    df_epoch.to_csv(os.path.join(folder, 'aggregated_epoch_stats.csv'), index=False)
+
+    # Save Excel with per-run sheets + aggregate
+    excel_path = os.path.join(folder, 'runs_and_aggregate.xlsx')
+    with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
+        for idx, r in enumerate(runs):
+            sheet = f'run_{idx+1}'
+            r.to_excel(writer, sheet_name=sheet, index=False)
+        df_epoch.to_excel(writer, sheet_name='aggregate', index=False)
+
+    return summary_path, excel_path
 
 
 def count_parameters(model):
