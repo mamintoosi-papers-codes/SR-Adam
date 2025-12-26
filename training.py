@@ -139,9 +139,13 @@ def train_model(model, train_loader, test_loader, optimizer, criterion, num_epoc
         metrics['test_acc'].append(test_acc)
         metrics['epoch_time'].append(epoch_time)
         
-        print(f'Epoch {epoch}/{num_epochs} | '
-              f'Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.2f}% | '
-              f'Test Loss: {test_loss:.4f} | Test Acc: {test_acc:.2f}% | '
-              f'Time: {epoch_time:.2f}s')
+        # Only print for epoch 1 and multiples of 10 to reduce notebook spam
+        if epoch == 1 or epoch % 10 == 0:
+            print(
+                f'Epoch {epoch}/{num_epochs} | '
+                f'Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.2f}% | '
+                f'Test Loss: {test_loss:.4f} | Test Acc: {test_acc:.2f}% | '
+                f'Time: {epoch_time:.2f}s'
+            )
     
     return metrics
