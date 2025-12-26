@@ -1,0 +1,27 @@
+ Volume in drive D is New Volume
+ Volume Serial Number is 2430-717C
+
+ Directory of D:\git\mamintoosi-papers-codes\SR-Adam\results\CIFAR10\simplecnn\noise_0.05\SR-Adam
+
+12/26/2025  04:24 PM    <DIR>          .
+12/26/2025  03:55 AM    <DIR>          ..
+12/26/2025  03:55 AM               826 aggregated_epoch_stats.csv
+12/26/2025  03:55 AM               198 aggregated_summary.json
+12/26/2025  04:24 PM                 0 list.txt
+12/26/2025  03:35 PM            19,757 runs_and_aggregate.xlsx
+12/25/2025  07:03 PM               203 run_1.csv
+12/25/2025  07:52 PM               202 run_1_1766679721.csv
+12/26/2025  03:08 AM             1,497 run_1_1766705906.csv
+12/26/2025  03:08 AM               167 run_1_meta.json
+12/25/2025  07:04 PM               203 run_2.csv
+12/25/2025  07:53 PM               202 run_2_1766679790.csv
+12/26/2025  03:20 AM             1,489 run_2_1766706606.csv
+12/26/2025  03:20 AM               169 run_2_meta.json
+12/26/2025  03:31 AM             1,500 run_3.csv
+12/26/2025  03:31 AM               167 run_3_meta.json
+12/26/2025  03:43 AM             1,501 run_4.csv
+12/26/2025  03:43 AM               169 run_4_meta.json
+12/26/2025  03:55 AM             1,504 run_5.csv
+12/26/2025  03:55 AM               169 run_5_meta.json
+              18 File(s)         29,923 bytes
+               2 Dir(s)  37,766,033,408 bytes free
