@@ -10,7 +10,7 @@ from tqdm import tqdm
 from torch.cuda.amp import GradScaler, autocast
 
 
-def train_epoch(model, train_loader, optimizer, criterion, device, epoch, num_epochs):
+def train_epoch(model, train_loader, optimizer, criterion, device, epoch, num_epochs, show_progress=True):
     """
     Train the model for one epoch.
     
@@ -32,7 +32,8 @@ def train_epoch(model, train_loader, optimizer, criterion, device, epoch, num_ep
     correct = 0
     total = 0
     
-    for inputs, labels in tqdm(train_loader, desc=f'Epoch {epoch}/{num_epochs}'):
+    iterator = tqdm(train_loader, desc=f'Epoch {epoch}/{num_epochs}') if show_progress else train_loader
+    for inputs, labels in iterator:
         inputs, labels = inputs.to(device), labels.to(device)
         
         optimizer.zero_grad()
@@ -123,8 +124,9 @@ def train_model(model, train_loader, test_loader, optimizer, criterion, num_epoc
         start_time = time.time()
         
         # Train
+        show_progress = (epoch == 1) or (epoch % 10 == 0)
         train_loss, train_acc = train_epoch(
-            model, train_loader, optimizer, criterion, device, epoch, num_epochs
+            model, train_loader, optimizer, criterion, device, epoch, num_epochs, show_progress=show_progress
         )
         
         # Evaluate
@@ -140,7 +142,7 @@ def train_model(model, train_loader, test_loader, optimizer, criterion, num_epoc
         metrics['epoch_time'].append(epoch_time)
         
         # Only print for epoch 1 and multiples of 10 to reduce notebook spam
-        if epoch == 1 or epoch % 10 == 0:
+        if show_progress:
             print(
                 f'Epoch {epoch}/{num_epochs} | '
                 f'Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.2f}% | '
