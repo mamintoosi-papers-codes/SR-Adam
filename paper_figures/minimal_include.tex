@@ -1,0 +1,155 @@
+\documentclass{article}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage[margin=1in]{geometry}
+\begin{document}
+
+% CIFAR10 - Accuracy
+\begin{table}[t]
+  \centering
+  \begin{tabular}{ccc}
+    	oprule
+    noise=0.0 & noise=0.05 & noise=0.1 \\
+    \midrule
+    \includegraphics[width=0.3\linewidth]{cifar10_noise0.0_acc_mean_std.pdf} &
+    \includegraphics[width=0.3\linewidth]{cifar10_noise0.05_acc_mean_std.pdf} &
+    \includegraphics[width=0.3\linewidth]{cifar10_noise0.1_acc_mean_std.pdf} \\
+    \bottomrule
+  \end{tabular}
+  \caption{CIFAR10 (SimpleCNN): test accuracy vs. epoch, mean$\pm$std, four optimizers.}
+\end{table}
+
+% CIFAR10 - Loss
+\begin{table}[t]
+  \centering
+  \begin{tabular}{ccc}
+    	oprule
+    noise=0.0 & noise=0.05 & noise=0.1 \\
+    \midrule
+    \includegraphics[width=0.3\linewidth]{cifar10_noise0.0_loss_mean_std.pdf} &
+    \includegraphics[width=0.3\linewidth]{cifar10_noise0.05_loss_mean_std.pdf} &
+    \includegraphics[width=0.3\linewidth]{cifar10_noise0.1_loss_mean_std.pdf} \\
+    \bottomrule
+  \end{tabular}
+  \caption{CIFAR10 (SimpleCNN): test loss vs. epoch, mean$\pm$std, four optimizers.}
+\end{table}
+
+% CIFAR100 - Accuracy
+\begin{table}[t]
+  \centering
+  \begin{tabular}{ccc}
+    	oprule
+    noise=0.0 & noise=0.05 & noise=0.1 \\
+    \midrule
+    \includegraphics[width=0.3\linewidth]{cifar100_noise0.0_acc_mean_std.pdf} &
+    \includegraphics[width=0.3\linewidth]{cifar100_noise0.05_acc_mean_std.pdf} &
+    \includegraphics[width=0.3\linewidth]{cifar100_noise0.1_acc_mean_std.pdf} \\
+    \bottomrule
+  \end{tabular}
+  \caption{CIFAR100 (SimpleCNN): test accuracy vs. epoch, mean$\pm$std, four optimizers.}
+\end{table}
+
+% CIFAR100 - Loss
+\begin{table}[t]
+  \centering
+  \begin{tabular}{ccc}
+    	oprule
+    noise=0.0 & noise=0.05 & noise=0.1 \\
+    \midrule
+    \includegraphics[width=0.3\linewidth]{cifar100_noise0.0_loss_mean_std.pdf} &
+    \includegraphics[width=0.3\linewidth]{cifar100_noise0.05_loss_mean_std.pdf} &
+    \includegraphics[width=0.3\linewidth]{cifar100_noise0.1_loss_mean_std.pdf} \\
+    \bottomrule
+  \end{tabular}
+  \caption{CIFAR100 (SimpleCNN): test loss vs. epoch, mean$\pm$std, four optimizers.}
+\end{table}
+
+\end{document}
+\documentclass{article}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage[margin=1in]{geometry}
+\begin{document}
+% CIFAR10 - Accuracy
+\begin{table}[t]
+  \centering
+  	oprule
+  noise=0.0 & noise=0.05 & noise=0.1 \\
+  \midrule
+  \includegraphics[width=0.3\linewidth]{cifar10_noise0.0_acc_mean_std.pdf} &
+  \includegraphics[width=0.3\linewidth]{cifar10_noise0.05_acc_mean_std.pdf} &
+  \includegraphics[width=0.3\linewidth]{cifar10_noise0.1_acc_mean_std.pdf} \\
+    \bottomrule
+  \end{tabular}
+  \caption{CIFAR10 (SimpleCNN): test accuracy vs. epoch, mean$\pm$std, four optimizers.}
+% CIFAR10 - Loss
+\begin{table}[t]
+  \centering
+  	oprule
+  noise=0.0 & noise=0.05 & noise=0.1 \\
+  \midrule
+  \includegraphics[width=0.3\linewidth]{cifar10_noise0.0_loss_mean_std.pdf} &
+  \includegraphics[width=0.3\linewidth]{cifar10_noise0.05_loss_mean_std.pdf} &
+  \includegraphics[width=0.3\linewidth]{cifar10_noise0.1_loss_mean_std.pdf} \\
+    \bottomrule
+  \end{tabular}
+  \caption{CIFAR10 (SimpleCNN): test loss vs. epoch, mean$\pm$std, four optimizers.}
+% CIFAR100 - Accuracy
+\begin{table}[t]
+  \centering
+  	oprule
+  noise=0.0 & noise=0.05 & noise=0.1 \\
+  \midrule
+  \includegraphics[width=0.3\linewidth]{cifar100_noise0.0_acc_mean_std.pdf} &
+  \includegraphics[width=0.3\linewidth]{cifar100_noise0.05_acc_mean_std.pdf} &
+  \includegraphics[width=0.3\linewidth]{cifar100_noise0.1_acc_mean_std.pdf} \\
+    \bottomrule
+  \end{tabular}
+  \caption{CIFAR100 (SimpleCNN): test accuracy vs. epoch, mean$\pm$std, four optimizers.}
+% CIFAR100 - Loss
+\begin{table}[t]
+  \centering
+  	oprule
+  noise=0.0 & noise=0.05 & noise=0.1 \\
+  \midrule
+  \includegraphics[width=0.3\linewidth]{cifar100_noise0.0_loss_mean_std.pdf} &
+  \includegraphics[width=0.3\linewidth]{cifar100_noise0.05_loss_mean_std.pdf} &
+  \includegraphics[width=0.3\linewidth]{cifar100_noise0.1_loss_mean_std.pdf} \\
+    \bottomrule
+  \end{tabular}
+  \caption{CIFAR100 (SimpleCNN): test loss vs. epoch, mean$\pm$std, four optimizers.}
+\end{table}
+\end{document}
+\documentclass{article}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\begin{document}
+% Minimal example to include generated PDFs (standalone-ready figures)
+\documentclass{article}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage[margin=1in]{geometry}
+\begin{document}
+
+% Example: accuracy curves (CIFAR10 noise=0.1) and loss curves (CIFAR10 noise=0.1)
+\begin{figure}[t]
+  \centering
+  \begin{subfigure}[b]{0.48\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{cifar10_noise0.1_acc_mean_std.pdf}
+    \caption{Accuracy vs. epoch (CIFAR10, noise=0.1)}
+  \end{subfigure}\hfill
+  \begin{subfigure}[b]{0.48\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{cifar10_noise0.1_loss_mean_std.pdf}
+    \caption{Loss vs. epoch (CIFAR10, noise=0.1)}
+  \end{subfigure}
+  \caption{SimpleCNN on CIFAR10 with four optimizers (SGD, Momentum, Adam, SR-Adam).}
+\end{figure}
+
+% Example: accuracy panels per noise for CIFAR100 (test-acc PNGs via standalone tables)
+% You can also include the standalone tables directly if compiled to PDF:
+% \includegraphics{cifar100_simplecnn_testacc_table.pdf}
+
+\end{document}
+\end{document}

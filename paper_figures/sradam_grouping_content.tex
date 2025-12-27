@@ -1,0 +1,39 @@
+% SR-Adam Parameter Grouping and Application Analysis (body-only for \input)
+
+For SimpleCNN, SR-Adam applies Stein-rule shrinkage {exclusively to convolutional layers}, while standard Adam is used for fully-connected layers and bias terms. Table \ref{tab:sradam_grouping} details the parameter groups:
+
+\begin{table}[t]
+  \centering
+  \caption{SR-Adam parameter grouping in SimpleCNN: Stein-rule applied only to convolutional layer weights (3.4\% of total parameters).}
+  \label{tab:sradam_grouping}
+  \begin{tabular}{l r r}
+    \toprule
+    Layer Group & Parameters & Stein-Rule \\
+    \midrule
+    Conv2d layers (weights + bias) & 18,528 & \textbf{Yes} \\
+    \quad Conv2d-1: 3×32×3×3 + 32 & 896 & Yes \\
+    \quad Conv2d-2: 32×64×3×3 + 64 & 18,496 & Yes \\
+    Fully-connected layers (Linear-1, Linear-2) & 525,706 & No \\
+    \quad Linear-1: 4096×128 + 128 & 524,416 & No \\
+    \quad Linear-2: 128×10 + 10 & 1,290 & No \\
+    \midrule
+    \textbf{Total} & \textbf{545,098} & — \\
+    \textbf{Stein-rule coverage} & \textbf{3.4\%} & — \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Why Stein-Rule on Convolutions Only?}
+This design balances theory, signal characteristics, and empirical behavior:
+
+\begin{enumerate}
+  \item \textbf{Dimensionality condition (James--Stein):} Stein-type shrinkage yields uniformly lower quadratic risk for $p\!\ge\!3$. Convolutional layers inhabit high-dimensional gradient spaces (hundreds to thousands of parameters), whereas the final classifier layer operates in a much lower-dimensional regime (e.g., $p\!=\!10$), where shrinkage guarantees weaken.
+
+  \item \textbf{Noisier gradients in feature extractors:} Convolutional gradients tend to be noisier due to batch-dependent feature maps and large receptive fields. Shrinking towards the momentum target stabilizes these estimates. Fully-connected layers, with fewer parameters and more direct supervision signal, benefit from unmodified adaptive moments.
+
+  \item \textbf{Empirical behavior in CIFAR experiments:} Restricting Stein-rule to Conv2d consistently matches or improves upon SGD, Momentum, and Adam, with the largest gains under label noise (0.05--0.1). Extending shrinkage to fully-connected layers did not provide additional benefit in our setting.
+
+  \item \textbf{Scope and efficiency:} Acting on only 3.4\% of parameters concentrates computation where it matters most while preserving the direct adaptivity of low-dimensional projection layers.
+\end{enumerate}
+
+In summary, SR-Adam applies Stein-rule where theory and data suggest the greatest leverage and leaves the projection layers to standard adaptive updates. Learning or selecting optimal parameter groups more generally (e.g., data-dependent or model-adaptive groupings) is a promising direction for future work.

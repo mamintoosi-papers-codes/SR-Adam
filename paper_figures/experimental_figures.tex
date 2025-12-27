@@ -1,0 +1,53 @@
+% Experimental Figures: CIFAR10 and CIFAR100 accuracy and loss across noise levels
+
+% CIFAR10 - Accuracy
+\begin{figure}[t]
+  \centering
+  \begin{tabular}{ccc}
+    noise=0.0 & noise=0.05 & noise=0.1 \\
+    \includegraphics[width=0.3\linewidth]{cifar10_noise0.0_acc_mean_std.pdf} &
+    \includegraphics[width=0.3\linewidth]{cifar10_noise0.05_acc_mean_std.pdf} &
+    \includegraphics[width=0.3\linewidth]{cifar10_noise0.1_acc_mean_std.pdf} \\
+  \end{tabular}
+  \caption{SimpleCNN on CIFAR10: test accuracy vs.\ epoch across noise levels. Mean $\pm$ std over runs.}
+  \label{fig:cifar10_acc}
+\end{figure}
+
+% CIFAR10 - Loss
+\begin{figure}[t]
+  \centering
+  \begin{tabular}{ccc}
+    noise=0.0 & noise=0.05 & noise=0.1 \\
+    \includegraphics[width=0.3\linewidth]{cifar10_noise0.0_loss_mean_std.pdf} &
+    \includegraphics[width=0.3\linewidth]{cifar10_noise0.05_loss_mean_std.pdf} &
+    \includegraphics[width=0.3\linewidth]{cifar10_noise0.1_loss_mean_std.pdf} \\
+  \end{tabular}
+  \caption{SimpleCNN on CIFAR10: test loss vs.\ epoch across noise levels. Mean $\pm$ std over runs.}
+  \label{fig:cifar10_loss}
+\end{figure}
+
+% CIFAR100 - Accuracy
+\begin{figure}[t]
+  \centering
+  \begin{tabular}{ccc}
+    noise=0.0 & noise=0.05 & noise=0.1 \\
+    \includegraphics[width=0.3\linewidth]{cifar100_noise0.0_acc_mean_std.pdf} &
+    \includegraphics[width=0.3\linewidth]{cifar100_noise0.05_acc_mean_std.pdf} &
+    \includegraphics[width=0.3\linewidth]{cifar100_noise0.1_acc_mean_std.pdf} \\
+  \end{tabular}
+  \caption{SimpleCNN on CIFAR100: test accuracy vs.\ epoch across noise levels. Mean $\pm$ std over runs.}
+  \label{fig:cifar100_acc}
+\end{figure}
+
+% CIFAR100 - Loss
+\begin{figure}[t]
+  \centering
+  \begin{tabular}{ccc}
+    noise=0.0 & noise=0.05 & noise=0.1 \\
+    \includegraphics[width=0.3\linewidth]{cifar100_noise0.0_loss_mean_std.pdf} &
+    \includegraphics[width=0.3\linewidth]{cifar100_noise0.05_loss_mean_std.pdf} &
+    \includegraphics[width=0.3\linewidth]{cifar100_noise0.1_loss_mean_std.pdf} \\
+  \end{tabular}
+  \caption{SimpleCNN on CIFAR100: test loss vs.\ epoch across noise levels. Mean $\pm$ std over runs.}
+  \label{fig:cifar100_loss}
+\end{figure}

@@ -1,0 +1,14 @@
+\documentclass[varwidth=\maxdimen]{standalone}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\begin{document}
+\begin{tabular}{ccc}
+\toprule
+noise=0.0 & noise=0.05 & noise=0.1 \\
+\midrule
+\includegraphics[width=0.3\linewidth]{cifar10_noise0.0_loss_mean_std.pdf} &
+\includegraphics[width=0.3\linewidth]{cifar10_noise0.05_loss_mean_std.pdf} &
+\includegraphics[width=0.3\linewidth]{cifar10_noise0.1_loss_mean_std.pdf} \\
+\bottomrule
+\end{tabular}
+\end{document}

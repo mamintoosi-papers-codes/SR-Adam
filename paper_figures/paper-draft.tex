@@ -1,8 +1,13 @@
 \documentclass[journal, onecolumn]{IEEEtran}
 \usepackage{amsmath, amsfonts, amssymb, amsthm}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{booktabs}
 \usepackage{algorithm}
-\usepackage{algorithmic}
+\usepackage{algpseudocode}
 \usepackage{bm}
+\usepackage[colorlinks, citecolor=magenta]{hyperref}
+
 
 \title{Shrinkage Estimation in High-Dimensional Deep Learning: A Stein-Rule Approach to Stochastic Optimization}
 
@@ -29,19 +34,19 @@ We posit the existence of a \textit{Restricted Estimator} (RE), $\tilde{\mathbf{
 $$    \tilde{\mathbf{g}}_t = \mathbf{m}_{t-1}$$
 where $\mathbf{m}_{t-1}$ is the first moment estimate from the previous step.
 The objective is to find an estimator $\hat{\mathbf{g}}_t$ that minimizes the weighted quadratic risk:
-$$    R(\hat{\mathbf{g}}_t) = \mathbb{E} \left[ || \hat{\mathbf{g}}_t - \nabla J(\boldsymbol{\theta}_t) ||^2 \right]$$
+$$    R(\hat{\mathbf{g}}_t) = \mathbb{E} \left[ \| \hat{\mathbf{g}}_t - \nabla J(\boldsymbol{\theta}_t) \|^2 \right]$$
 \section{Proposed Method: The Stein-Rule Gradient}
 Under the James-Stein framework, we construct a shrinkage estimator $\mathbf{g}^{S}_t$ that shrinks the high-variance UE ($\mathbf{g}_t$) towards the low-variance RE ($\mathbf{m}_{t-1}$).
 \subsection{The Test Statistic}
 We define the test statistic $D_n$ based on the squared Euclidean distance between the current observation and the historical trend:
-$$    D_n = || \mathbf{g}_t - \mathbf{m}_{t-1} ||^2_2$$
+$$    D_n = \| \mathbf{g}_t - \mathbf{m}_{t-1} \|^2_2$$
 This statistic essentially tests the hypothesis $H_0: \nabla J(\boldsymbol{\theta}_t) = \mathbf{m}_{t-1}$. A large $D_n$ suggests the current batch gradient deviates significantly from the established trajectory (high noise or distributional shift).
 \subsection{The Stein-Rule Estimator}
 The Stein-Rule estimator for the gradient is defined as:
 $$    \mathbf{g}^{S}_t = \mathbf{m}_{t-1} + \left( 1 - \frac{(p-2)\sigma^2}{D_n} \right) (\mathbf{g}_t - \mathbf{m}_{t-1})$$
 To ensure the shrinkage factor remains valid (non-negative), we adopt the Positive-Rule Stein Estimator:
 $$    \label{eq:pos_stein}
-    \mathbf{g}^{S+}_t = \mathbf{m}_{t-1} + \left[ 1 - \frac{(p-2)\sigma^2}{|| \mathbf{g}_t - \mathbf{m}_{t-1} ||^2} \right]^+ (\mathbf{g}_t - \mathbf{m}_{t-1})$$
+    \mathbf{g}^{S+}_t = \mathbf{m}_{t-1} + \left[ 1 - \frac{(p-2)\sigma^2}{\| \mathbf{g}_t - \mathbf{m}_{t-1} \|^2} \right]^+ (\mathbf{g}_t - \mathbf{m}_{t-1})$$
 where $[z]^+ = \max(0, z)$.
 \section{Adaptive Variance Estimation in Adam}
 A critical challenge in applying Eq. (\ref{eq:pos_stein}) is the unknown noise variance $\sigma^2$. In static regression, this is estimated via residual sum of squares. In stochastic optimization, we must estimate it online.
@@ -52,32 +57,51 @@ $$    \hat{\sigma}^2_{global} = \frac{1}{p} \sum_{j=1}^p \left( [\mathbf{v}_t]_j
 Substituting $\hat{\sigma}^2_{global}$ into Eq. (\ref{eq:pos_stein}) yields a fully adaptive, hyperparameter-free shrinkage mechanism.
 \section{The SR-Adam Algorithm}
 We formally present the Stein-Rule Adam (SR-Adam) algorithm.
+
 \begin{algorithm}
 \caption{SR-Adam: Stein-Rule Adaptive Moment Estimation}
 \begin{algorithmic}[1]
-\REQUIRE $\alpha$: Learning rate
-\REQUIRE $\beta_1, \beta_2 \in [0, 1)$: Exponential decay rates
-\REQUIRE $\boldsymbol{\theta}_0$: Initial parameter vector
-\REQUIRE $\mathbf{m}_0 \leftarrow \mathbf{0}, \mathbf{v}_0 \leftarrow \mathbf{0}$
-\STATE $t \leftarrow 0$
-\WHILE{$\boldsymbol{\theta}_t$ not converged}
-    \STATE $t \leftarrow t + 1$
-    \STATE Get gradients $\mathbf{g}_t \leftarrow \nabla_{\boldsymbol{\theta}} f_t(\boldsymbol{\theta}_{t-1})$
-    \IF{$t > 1$}
-        \STATE Compute noise variance: $\hat{\sigma}^2 \leftarrow \text{mean}(\mathbf{v}_{t-1} - \mathbf{m}_{t-1}^2)$
-        \STATE Compute divergence: $D_n \leftarrow || \mathbf{g}_t - \mathbf{m}_{t-1} ||^2$
-        \STATE Compute shrinkage factor: $c_t \leftarrow \max\left(0, 1 - \frac{(p-2)\hat{\sigma}^2}{D_n}\right)$
-        \STATE \textbf{Stein Correction}: $\hat{\mathbf{g}}_t \leftarrow \mathbf{m}_{t-1} + c_t (\mathbf{g}_t - \mathbf{m}_{t-1})$
-    \ELSE
-        \STATE $\hat{\mathbf{g}}_t \leftarrow \mathbf{g}_t$
-    \ENDIF
-    \STATE Update biased first moment: $\mathbf{m}_t \leftarrow \beta_1 \mathbf{m}_{t-1} + (1 - \beta_1) \hat{\mathbf{g}}_t$
-    \STATE Update biased second raw moment: $\mathbf{v}_t \leftarrow \beta_2 \mathbf{v}_{t-1} + (1 - \beta_2) \hat{\mathbf{g}}_t^2$
-    \STATE Compute bias-corrected moments $\hat{\mathbf{m}}_t, \hat{\mathbf{v}}_t$
-    \STATE Update parameters: $\boldsymbol{\theta}_t \leftarrow \boldsymbol{\theta}_{t-1} - \alpha \cdot \hat{\mathbf{m}}_t / (\sqrt{\hat{\mathbf{v}}_t} + \epsilon)$
-\ENDWHILE
+\Require $\alpha$: Learning rate
+\Require $\beta_1, \beta_2 \in [0, 1)$: Exponential decay rates
+\Require $\bm{\theta}_0$: Initial parameter vector
+\Require $\mathbf{m}_0 \gets \mathbf{0}, \mathbf{v}_0 \gets \mathbf{0}$ \State $t \gets 0$ \While{$\bm{\theta}_t$ not converged}
+    \State $t \gets t + 1$     \State Get gradients $\mathbf{g}_t \gets \nabla_{\bm{\theta}} f_t(\bm{\theta}_{t-1})$     \If{$t > 1$}
+        \State Compute noise variance: $\hat{\sigma}^2 \gets \text{mean}(\mathbf{v}_{t-1} - \mathbf{m}_{t-1}^2)$         \State Compute divergence: $D_n \gets \| \mathbf{g}_t - \mathbf{m}_{t-1} \|^2$         \State Compute shrinkage factor: $c_t \gets \max\left(0, 1 - \frac{(p-2)\hat{\sigma}^2}{D_n}\right)$         \State \textbf{Stein Correction}: $\hat{\mathbf{g}}_t \gets \mathbf{m}_{t-1} + c_t (\mathbf{g}_t - \mathbf{m}_{t-1})$     \Else
+        \State $\hat{\mathbf{g}}_t \gets \mathbf{g}_t$     \EndIf
+    \State Update biased first moment: $\mathbf{m}_t \gets \beta_1 \mathbf{m}_{t-1} + (1 - \beta_1) \hat{\mathbf{g}}_t$     \State Update biased second raw moment: $\mathbf{v}_t \gets \beta_2 \mathbf{v}_{t-1} + (1 - \beta_2) \hat{\mathbf{g}}_t^2$     \State Compute bias-corrected moments $\hat{\mathbf{m}}_t, \hat{\mathbf{v}}_t$     \State Update parameters: $\bm{\theta}_t \gets \bm{\theta}_{t-1} - \alpha \cdot \frac{\hat{\mathbf{m}}_t}{\sqrt{\hat{\mathbf{v}}_t} + \epsilon}$ \EndWhile
 \end{algorithmic}
 \end{algorithm}
+
+\section{Experimental Results}
+We present a controlled empirical study designed to isolate the optimizer's effect while keeping the rest of the training pipeline fixed. Experiments span CIFAR10 and CIFAR100 with three levels of label noise (0.0, 0.05, 0.1). Unless otherwise stated, the optimizer is the only varying component; backbone, preprocessing, epochs, batch size, and evaluation are held constant to ensure a fair comparison. We first summarize the backbone and the SR-Adam application strategy, then report per-epoch behavior and aggregated metrics across runs.
+
+\subsection{Model Architecture}
+We employ a lightweight SimpleCNN backbone for all experiments. Table \ref{tab:simplecnn_arch} details the architecture, comprising two convolutional layers (32 and 64 filters with 3×3 kernels), followed by two fully connected layers (128 and 10 units). The total parameter count is 545,098, which keeps the model compact and allows us to focus on the optimizer's behavior without architectural confounds.
+
+\input{simplecnn_arch_content.tex}
+
+\subsubsection{SR-Adam Application Strategy}
+SR-Adam applies Stein-rule shrinkage selectively: only to the convolutional layers where high-dimensional feature maps and noisy batch gradients make shrinkage estimation particularly valuable. Table \ref{tab:sradam_grouping} shows that SR-Adam manages 18,528 parameters (3.4\% of the total) in Conv2d modules, while fully-connected layers use standard Adam updates. This selective grouping exploits the Stein-rule's strength in high-dimensional regimes while preserving the direct adaptive behavior for low-dimensional projection layers.
+
+\input{sradam_grouping_content.tex}
+
+\subsection{Experimental Setup and Results}
+We evaluate SR-Adam against SGD, Momentum, and Adam on CIFAR10 and CIFAR100 using the SimpleCNN backbone. To probe robustness to label noise, we add corruptions at three levels: 0.0, 0.05, and 0.1. For each dataset/noise combination, we conduct 5 independent runs with different random seeds and report mean $\pm$ std across runs. Accuracy is reported as a percentage (higher is better); loss is minimized (lower is better). In method comparison tables (Tables \ref{tab:method_best_acc}--\ref{tab:method_final_loss}), we bold the best entry per dataset/noise column according to the respective metric direction.
+
+\paragraph{Fairness and Reproducibility}
+All comparisons use an identical training protocol and data processing across methods; only the optimizer changes. We hold constant the backbone, number of epochs, batch size, label-noise injection, evaluation procedure, and seed schedule (five seeds per configuration), while using standard, fixed hyperparameters per optimizer throughout. To avoid discrepancies due to third-party implementations, all optimizers are implemented within a single, consistent codebase with matching interfaces, and the full executable code is publicly available from the paper repository
+\footnote{\url{https://github.com/mamintoosi-papers-codes/SR-Adam}}.
+
+\subsubsection{Per-Epoch Behavior}
+Figures \ref{fig:cifar10_acc}--\ref{fig:cifar100_loss} display test accuracy and loss across epochs, stratified by noise level. Each figure shows three panels corresponding to noise levels 0.0, 0.05, and 0.1. All four methods (SGD, Momentum, Adam, SR-Adam) are plotted with mean ± std bands.
+
+\input{experimental_figures.tex}
+
+\subsubsection{Aggregated Metrics}
+Tables \ref{tab:method_best_acc} and \ref{tab:method_best_loss} report the best accuracy and loss achieved over all epochs; Tables \ref{tab:method_final_acc} and \ref{tab:method_final_loss} report final epoch values. Each table rows are methods and columns are dataset×noise combinations. The mean $\pm$ std are computed across the 5 runs; bolded entries highlight the best-performing method per column. SR-Adam consistently achieves competitive or superior performance, particularly in high-noise regimes (0.05, 0.1), demonstrating the benefit of dynamic shrinkage on noisy gradients.
+
+\input{minimal-tables-content.tex}
+
 \section{Discussion and Conclusion}
 The SR-Adam algorithm introduces a rigorous statistical "gate" to the optimization process. In regimes of high uncertainty (early training or noisy batches), the term $\frac{(p-2)\sigma^2}{D_n}$ dominates, and $c_t \to 0$. The optimizer effectively rejects the noisy observation $\mathbf{g}_t$ and defaults to the stable momentum $\mathbf{m}_{t-1}$. As training stabilizes and variance decreases, $c_t \to 1$, recovering the standard Adam behavior.
 This methodology demonstrates that the inadmissibility of high-dimensional estimators is not merely a theoretical curiosity but a practical lever for improving deep learning optimization. Future work will extend this to Preliminary Test (PT) strategies for dynamic network pruning.

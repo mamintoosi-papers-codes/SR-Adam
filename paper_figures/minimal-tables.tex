@@ -1,0 +1,81 @@
+\documentclass{article}
+\usepackage{booktabs}
+\usepackage[margin=1in]{geometry}
+\begin{document}
+% Best test accuracy (mean $\pm$ std) over epochs; higher is better.
+\begin{table}[t]
+  \centering
+  \begin{tabular}{l ccc ccc}
+    \toprule
+     & \multicolumn{3}{c}{CIFAR10} & \multicolumn{3}{c}{CIFAR100} \\
+     \cmidrule(lr){2-4} \cmidrule(lr){5-7}
+    Method & 0.0 & 0.05 & 0.1 & 0.0 & 0.05 & 0.1 \\
+    \midrule
+    SGD & 48.95 $\pm$ 0.74 & 49.25 $\pm$ 0.65 & 49.24 $\pm$ 0.68 & 13.17 $\pm$ 0.22 & 13.20 $\pm$ 0.44 & 13.23 $\pm$ 0.40 \\
+    Momentum & 72.31 $\pm$ 0.47 & 72.22 $\pm$ 0.65 & 71.89 $\pm$ 0.61 & 34.77 $\pm$ 0.65 & 34.63 $\pm$ 0.66 & 34.38 $\pm$ 0.63 \\
+    Adam & 74.12 $\pm$ 0.60 & 73.95 $\pm$ 0.39 & 73.20 $\pm$ 0.50 & 40.85 $\pm$ 0.55 & 40.25 $\pm$ 0.60 & 39.14 $\pm$ 0.55 \\
+    SR-Adam & \textbf{75.59 $\pm$ 0.50} & \textbf{75.84 $\pm$ 0.28} & \textbf{75.37 $\pm$ 0.62} & \textbf{42.74 $\pm$ 1.09} & \textbf{41.50 $\pm$ 1.20} & \textbf{40.43 $\pm$ 0.30} \\
+    \bottomrule
+  \end{tabular}
+  \caption{Best test accuracy (mean $\pm$ std) over epochs; higher is better.}
+  \label{tab:method_best_acc}
+\end{table}
+
+% Final test accuracy (mean $\pm$ std) at last epoch; higher is better.
+\begin{table}[t]
+  \centering
+  \begin{tabular}{l ccc ccc}
+    \toprule
+     & \multicolumn{3}{c}{CIFAR10} & \multicolumn{3}{c}{CIFAR100} \\
+     \cmidrule(lr){2-4} \cmidrule(lr){5-7}
+    Method & 0.0 & 0.05 & 0.1 & 0.0 & 0.05 & 0.1 \\
+    \midrule
+    SGD & 48.79 $\pm$ 0.84 & 49.09 $\pm$ 0.74 & 49.11 $\pm$ 0.69 & 13.17 $\pm$ 0.22 & 13.20 $\pm$ 0.44 & 13.23 $\pm$ 0.40 \\
+    Momentum & 71.92 $\pm$ 0.91 & 72.19 $\pm$ 0.71 & 71.89 $\pm$ 0.61 & 34.76 $\pm$ 0.64 & 34.63 $\pm$ 0.66 & 34.38 $\pm$ 0.63 \\
+    Adam & 73.77 $\pm$ 0.69 & 73.54 $\pm$ 0.78 & 72.59 $\pm$ 0.92 & 40.82 $\pm$ 0.56 & 40.19 $\pm$ 0.60 & 39.02 $\pm$ 0.54 \\
+    SR-Adam & \textbf{75.48 $\pm$ 0.43} & \textbf{75.75 $\pm$ 0.33} & \textbf{75.21 $\pm$ 0.63} & \textbf{42.74 $\pm$ 1.09} & \textbf{41.50 $\pm$ 1.20} & \textbf{40.08 $\pm$ 0.50} \\
+    \bottomrule
+  \end{tabular}
+  \caption{Final test accuracy (mean $\pm$ std) at last epoch; higher is better.}
+  \label{tab:method_final_acc}
+\end{table}
+
+% Best test loss (mean $\pm$ std) over epochs; lower is better.
+\begin{table}[t]
+  \centering
+  \begin{tabular}{l ccc ccc}
+    \toprule
+     & \multicolumn{3}{c}{CIFAR10} & \multicolumn{3}{c}{CIFAR100} \\
+     \cmidrule(lr){2-4} \cmidrule(lr){5-7}
+    Method & 0.0 & 0.05 & 0.1 & 0.0 & 0.05 & 0.1 \\
+    \midrule
+    SGD & 1.42 $\pm$ 0.01 & 1.41 $\pm$ 0.01 & 1.41 $\pm$ 0.01 & 3.78 $\pm$ 0.01 & 3.78 $\pm$ 0.01 & 3.78 $\pm$ 0.01 \\
+    Momentum & 0.81 $\pm$ 0.02 & 0.81 $\pm$ 0.01 & 0.82 $\pm$ 0.01 & 2.58 $\pm$ 0.03 & 2.58 $\pm$ 0.02 & 2.59 $\pm$ 0.03 \\
+    Adam & 0.75 $\pm$ 0.01 & 0.76 $\pm$ 0.01 & 0.77 $\pm$ 0.01 & 2.28 $\pm$ 0.03 & 2.30 $\pm$ 0.02 & 2.36 $\pm$ 0.02 \\
+    SR-Adam & \textbf{0.70 $\pm$ 0.01} & \textbf{0.70 $\pm$ 0.01} & \textbf{0.71 $\pm$ 0.01} & \textbf{2.18 $\pm$ 0.04} & \textbf{2.23 $\pm$ 0.05} & \textbf{2.29 $\pm$ 0.02} \\
+    \bottomrule
+  \end{tabular}
+  \caption{Best test loss (mean $\pm$ std) over epochs; lower is better.}
+  \label{tab:method_best_loss}
+\end{table}
+
+% Final test loss (mean $\pm$ std) at last epoch; lower is better.
+\begin{table}[t]
+  \centering
+  \begin{tabular}{l ccc ccc}
+    \toprule
+     & \multicolumn{3}{c}{CIFAR10} & \multicolumn{3}{c}{CIFAR100} \\
+     \cmidrule(lr){2-4} \cmidrule(lr){5-7}
+    Method & 0.0 & 0.05 & 0.1 & 0.0 & 0.05 & 0.1 \\
+    \midrule
+    SGD & 1.42 $\pm$ 0.01 & 1.42 $\pm$ 0.02 & 1.42 $\pm$ 0.02 & 3.78 $\pm$ 0.01 & 3.78 $\pm$ 0.01 & 3.78 $\pm$ 0.01 \\
+    Momentum & 0.82 $\pm$ 0.02 & 0.81 $\pm$ 0.02 & 0.82 $\pm$ 0.01 & 2.58 $\pm$ 0.03 & 2.58 $\pm$ 0.02 & 2.59 $\pm$ 0.03 \\
+    Adam & 0.75 $\pm$ 0.01 & 0.76 $\pm$ 0.02 & 0.78 $\pm$ 0.02 & 2.28 $\pm$ 0.03 & 2.31 $\pm$ 0.02 & 2.37 $\pm$ 0.01 \\
+    SR-Adam & \textbf{0.71 $\pm$ 0.01} & \textbf{0.71 $\pm$ 0.01} & \textbf{0.72 $\pm$ 0.02} & \textbf{2.18 $\pm$ 0.04} & \textbf{2.23 $\pm$ 0.05} & \textbf{2.32 $\pm$ 0.02} \\
+    \bottomrule
+  \end{tabular}
+  \caption{Final test loss (mean $\pm$ std) at last epoch; lower is better.}
+  \label{tab:method_final_loss}
+\end{table}
+
+\end{document}

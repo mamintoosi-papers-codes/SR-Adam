@@ -7,15 +7,17 @@ Experimental implementations of **Stein-rule–based gradient shrinkage** for de
 ## Quick Start
 
 ```bash
-# Run with default settings (CIFAR-10, 15 epochs)
-python main.py
+# Windows: run full pipeline (experiments → aggregates → tables/figures → paper)
+cd c:\git\mamintoosi-papers-codes\SR-Adam
+reproduce_all.bat
 
-# Quick test (5 epochs)
-python main.py --num_epochs 5
-
-# Full customization
-python main.py --dataset CIFAR100 --batch_size 256 --num_epochs 30 --noise 0.01
+# Or run experiments only (all noise levels processed automatically)
+python main.py --dataset ALL --model simplecnn --optimizers ALL --num_epochs 20 --num_runs 5 --batch_size 512
 ```
+
+Notes:
+- Noise levels [0.0, 0.05, 0.1] are handled inside `main.py` and do not require `--noise`.
+- To customize datasets/optimizers, adjust `--dataset` and `--optimizers` (e.g., `"Adam|SR-Adam"`).
 
 ---
 
@@ -23,17 +25,15 @@ python main.py --dataset CIFAR100 --batch_size 256 --num_epochs 30 --noise 0.01
 
 ```
 SR-Adam/
-├── main.py              # Entry point
-├── optimizers.py        # 6 optimizer implementations
-├── model.py             # SimpleCNN architecture
-├── data.py              # Data loading utilities
-├── training.py          # Training loops
-├── utils.py             # Save/visualization
-├── doc/                 # Documentation
-│   ├── QUICKSTART.md    # Detailed command reference
-│   ├── NOTES.md         # Technical details
-│   └── main_original.py # Original monolithic version
-└── results_*/           # Generated results
+├── main.py                        # Experiment orchestrator (CIFAR10/100 grid)
+├── optimizers.py                  # Baselines + SR-Adam implementations
+├── model.py, data.py, training.py # Core pipeline
+├── utils.py                       # I/O and plotting helpers
+├── REPRODUCE.md                   # Full reproducibility guide
+├── QUICK_START.md                 # Minimal quick start
+├── reproduce_all.bat              # Windows automation script
+├── paper_figures/                 # LaTeX paper + generated tables/figures
+└── results/                       # Outputs (created automatically)
 ```
 
 ---
@@ -46,9 +46,8 @@ SR-Adam/
 - **Adam** - Adaptive Moment Estimation
 
 ### Stein-Rule Variants
-- **SR-Adam (Fixed, Global)** - Fixed noise variance σ²
-- **SR-Adam (Adaptive, Global)** - Adaptive variance from Adam moments (stable)
-- **SR-Adam (Adaptive, Local)** - Per-group shrinkage (most faithful)
+### Stein-Rule Optimizer
+- **SR-Adam** - Adaptive Stein-rule gradient shrinkage using Adam moments; applied to convolutional layers where shrinkage is most effective
 
 ---
 
@@ -72,7 +71,7 @@ Where:
 
 ✅ **Modular Architecture** - 6 independent Python modules  
 ✅ **Automatic Result Saving** - CSV, Excel, JSON, plots after each epoch  
-✅ **Numerical Stability** - 5 critical bugs fixed in SR-Adam (Adaptive, Local)  
+✅ **Numerical Stability** - 5 critical bugs fixed in SR-Adam implementation  
 ✅ **Mixed Precision** - AMP support for faster training  
 ✅ **Reproducibility** - Seed tracking, comprehensive configs  
 
@@ -82,11 +81,14 @@ Where:
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--dataset` | `CIFAR10` | Dataset: CIFAR10 or CIFAR100 |
-| `--batch_size` | `512` | Batch size for data loaders |
-| `--num_epochs` | `15` | Number of training epochs |
-| `--noise` | `0.0` | Gaussian noise std dev (0.0 = no noise) |
-| `--seed` | `42` | Random seed for reproducibility |
+| `--dataset` | `ALL` | `CIFAR10`, `CIFAR100`, or `ALL` (runs both) |
+| `--model` | `None` | `simplecnn` or `resnet18` (default per dataset if None) |
+| `--optimizers` | `ALL` | One or more of `SGD`, `Momentum`, `Adam`, `SR-Adam` (use `|` to separate) |
+| `--num_runs` | `5` | Independent runs per configuration (seeded) |
+| `--num_epochs` | `20` | Training epochs per run |
+| `--batch_size` | `2048` | Batch size for training/eval |
+| `--noise` | `0.0` | Ignored: noise levels are processed automatically in `main.py` |
+| `--base_seed` | `42` | Base seed; per-run seeds = base+run_index |
 
 ---
 
@@ -99,34 +101,39 @@ Typical test accuracy on CIFAR-10 (15 epochs):
 | SGD | 45-50% |
 | Momentum | 68-72% |
 | Adam | 72-75% |
-| SR-Adam (Fixed, Global) | ? |
-| SR-Adam (Adaptive, Global) | ? |
-| SR-Adam (Adaptive, Local) | ? |
+| SR-Adam | ? |
 
 ---
 
 ## Output Files
 
-Results are saved to `results_{DATASET}_noise{NOISE}/`:
+Results are saved under `results/<dataset>/<model>/noise_<v>/<optimizer>/` with per-run CSV/JSON, epoch plots, and aggregated summaries. A global `summary_statistics.csv` is also produced.
 
+Example:
 ```
-results_CIFAR10_noise0.0/
-├── optimizer_comparison_CIFAR10_batch512_epochs15_noise0.0.xlsx
-├── config.json
-└── optimizer_comparison.png
+results/
+├── CIFAR10/
+│   └── simplecnn/
+│       ├── noise_0.0/
+│       │   ├── Adam/run_1.csv
+│       │   └── SR-Adam/run_5_meta.json
+│       └── noise_0.1/test_acc_epoch_mean_std.png
+└── summary_statistics.csv
 ```
-
-- **Excel file**: One sheet per optimizer with all metrics
-- **JSON config**: Experiment parameters and final accuracies  
-- **PNG plot**: 4-panel visualization (train/test loss & accuracy)
 
 ---
 
 ## Documentation
 
-- **[doc/QUICKSTART.md](doc/QUICKSTART.md)** - Detailed command reference & examples
-- **[doc/NOTES.md](doc/NOTES.md)** - Technical details & implementation notes
+- **[REPRODUCE.md](REPRODUCE.md)** - Full pipeline and arguments
+- **[QUICK_START.md](QUICK_START.md)** - Minimal checklist and examples
 - **Module docstrings** - API documentation in each `.py` file
+
+### Fairness and Reproducibility
+- Identical training protocol across methods; only the optimizer differs.
+- Fixed backbone, epochs, batch size, label-noise schedule, evaluation, and seed plan.
+- In-house implementations with matching interfaces; no third-party optimizer packages used.
+- Public repository with executable code: https://github.com/mamintoosi-papers-codes/SR-Adam
 
 ---
 
