@@ -1,0 +1,9 @@
+{
+  "dataset": "CIFAR100",
+  "model": "simplecnn",
+  "noise": 0.05,
+  "optimizer": "SR-Adam",
+  "run_id": 3,
+  "final_test_acc": 40.98,
+  "best_test_acc": 40.99
+}
