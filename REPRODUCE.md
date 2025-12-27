@@ -194,7 +194,7 @@ All experiment configuration is controlled via `main.py` command-line arguments:
 | Argument | Type | Default | Description |
 |----------|------|---------|-------------|
 | `--dataset` | str | `ALL` | Dataset to use: `CIFAR10`, `CIFAR100`, or `ALL` (runs both) |
-| `--model` | str | None (auto) | Model architecture: `simplecnn` or `resnet18`. If None, uses SimpleCNN for CIFAR10 and ResNet-18 for CIFAR100 |
+| `--model` | str | None (auto) | Model architecture: `simplecnn`. If None, SimpleCNN is used throughout this study |
 | `--optimizers` | str | `ALL` | Optimizers to test: `SGD`, `Momentum`, `Adam`, `SR-Adam`, or `ALL` (runs all four). Use `\|` to separate: `"adam\|sradam"` |
 | `--num_runs` | int | 5 | Number of independent runs per configuration (different seeds) |
 | `--num_epochs` | int | 20 | Number of training epochs |
@@ -221,9 +221,9 @@ python main.py --dataset ALL --model simplecnn --optimizers ALL --num_epochs 20 
 python main.py --dataset ALL --optimizers "Adam|SR-Adam" --num_runs 3
 ```
 
-**ResNet-18 on CIFAR100 (all noise levels):**
+**SimpleCNN on CIFAR100 (all noise levels):**
 ```bash
-python main.py --dataset CIFAR100 --model resnet18 --num_epochs 20 --num_runs 3
+python main.py --dataset CIFAR100 --model simplecnn --num_epochs 20 --num_runs 3
 ```
 
 ### **Reproducibility Settings**
@@ -283,7 +283,7 @@ python make_loss_plots_simplecnn.py
 
 ```
 main.py
-├── model.py (SimpleCNN, ResNet-18)
+├── model.py (SimpleCNN)
 ├── data.py (CIFAR loaders with noise)
 ├── training.py (train_model, evaluate)
 ├── optimizers.py (SGD, Momentum, Adam, SR-Adam)
