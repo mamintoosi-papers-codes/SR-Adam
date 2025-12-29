@@ -14,6 +14,7 @@ import torch.nn as nn
 import numpy as np
 import argparse
 import os
+import shutil
 
 from optimizers import (
     SGDManual,
@@ -171,6 +172,12 @@ def main():
         help='Optimizer list or "ALL" (case-insensitive); separate multiple with "|" or ";"'
     )
 
+    parser.add_argument(
+        "--clean_previous",
+        action="store_true",
+        help="Remove previous results for the selected optimizers (dataset/model/noise scope) before running"
+    )
+
     args = parser.parse_args()
 
     device = setup_device()
@@ -220,6 +227,17 @@ def main():
                 model_name = 'simplecnn' if dataset_name == 'CIFAR10' else 'resnet18'
 
             print(f"Using model: {model_name}")
+
+            # Optional cleanup: remove previous results for chosen optimizers
+            if args.clean_previous:
+                for opt_name in optimizer_names:
+                    folder = os.path.join('results', dataset_name, model_name, f'noise_{noise}', opt_name)
+                    if os.path.isdir(folder):
+                        try:
+                            shutil.rmtree(folder)
+                            print(f"[Clean] Removed previous results: {folder}")
+                        except Exception as e:
+                            print(f"[Clean] Failed to remove {folder}: {e}")
 
             # Load data for this dataset/noise
             train_loader, test_loader, num_classes = get_data_loaders(
