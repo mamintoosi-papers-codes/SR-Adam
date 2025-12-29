@@ -187,7 +187,7 @@ def main():
         "Momentum",
         "Adam",
         "SR-Adam",
-        "SR-Adam-All-Weights",
+        # "SR-Adam-All-Weights",
     ]
 
     alias_map = {
@@ -195,7 +195,7 @@ def main():
         "momentum": "Momentum",
         "adam": "Adam",
         "sradam": "SR-Adam",
-        "sradam_all": "SR-Adam-All-Weights",
+        # "sradam_all": "SR-Adam-All-Weights",
     }
 
     optimizer_names = parse_optimizer_list(args.optimizers, all_optimizer_names, alias_map)
