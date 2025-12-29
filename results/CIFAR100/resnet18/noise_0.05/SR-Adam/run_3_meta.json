@@ -1,9 +1,0 @@
-{
-  "dataset": "CIFAR100",
-  "model": "resnet18",
-  "noise": 0.05,
-  "optimizer": "SR-Adam",
-  "run_id": 3,
-  "final_test_acc": 46.25,
-  "best_test_acc": 46.25
-}
