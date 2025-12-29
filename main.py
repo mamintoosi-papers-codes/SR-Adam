@@ -126,6 +126,17 @@ def create_optimizer(name, model):
             shrink_clip=(0.1, 1.0),
         )
 
+    if name == "SR-Adam-All-Weights":
+        # apply Stein-rule to all parameters (single group with stein=True)
+        all_params = list(model.parameters())
+        param_groups = [{"params": all_params, "stein": True}]
+        return SRAdamAdaptiveLocal(
+            param_groups,
+            lr=1e-3,
+            warmup_steps=5,
+            shrink_clip=(0.1, 1.0),
+        )
+
     raise ValueError(f"Unknown optimizer: {name}")
 
 
@@ -176,6 +187,7 @@ def main():
         "Momentum",
         "Adam",
         "SR-Adam",
+        "SR-Adam-All-Weights",
     ]
 
     alias_map = {
@@ -183,6 +195,7 @@ def main():
         "momentum": "Momentum",
         "adam": "Adam",
         "sradam": "SR-Adam",
+        "sradam_all": "SR-Adam-All-Weights",
     }
 
     optimizer_names = parse_optimizer_list(args.optimizers, all_optimizer_names, alias_map)
