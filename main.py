@@ -35,6 +35,7 @@ from utils import (
     plot_mean_std,
     save_run_metrics,
     aggregate_runs_and_save,
+    save_run_checkpoints,
 )
 
 
@@ -263,6 +264,12 @@ def main():
 
                     # Save per-run CSV + meta
                     save_run_metrics(metrics, dataset_name, model_name, noise, opt_name, run + 1)
+
+                    # Save best and last model checkpoints for reproducible figures
+                    try:
+                        save_run_checkpoints(dataset_name, model_name, noise, opt_name, run + 1, metrics)
+                    except Exception as e:
+                        print(f"Checkpoint saving failed: {e}")
 
                 # Aggregate runs for this optimizer/dataset/noise
                 try:

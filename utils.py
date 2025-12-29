@@ -63,6 +63,72 @@ def save_run_metrics(metrics, dataset, model, noise, optimizer_name, run_id, bas
     return csv_path
 
 
+def _to_cpu_state_dict(state_dict):
+    """Detach and move model state dict tensors to CPU for portable checkpoints."""
+    return {k: (v.detach().cpu() if hasattr(v, 'detach') else v) for k, v in state_dict.items()}
+
+
+def save_run_checkpoints(dataset, model, noise, optimizer_name, run_id, metrics, base_dir='results'):
+    """Save best and last model checkpoints for a single run.
+
+    Paths:
+      results/{dataset}/{model}/noise_{noise}/{optimizer_name}/run_{run_id}_best.pt
+      results/{dataset}/{model}/noise_{noise}/{optimizer_name}/run_{run_id}_last.pt
+    """
+    folder = os.path.join(base_dir, dataset, model, f"noise_{noise}", optimizer_name)
+    os.makedirs(folder, exist_ok=True)
+
+    best_sd = metrics.get('best_state_dict')
+    final_sd = metrics.get('final_state_dict')
+    if best_sd is None and final_sd is None:
+        # Nothing to save
+        return None, None
+
+    best_epoch = metrics.get('best_epoch')
+    best_acc = metrics.get('best_test_acc')
+    final_acc = float(metrics['test_acc'][-1]) if metrics.get('test_acc') else None
+
+    best_path = None
+    last_path = None
+
+    if best_sd is not None:
+        best_path = os.path.join(folder, f"run_{run_id}_best.pt")
+        torch.save({
+            'epoch': best_epoch,
+            'test_acc': best_acc,
+            'model_state_dict': _to_cpu_state_dict(best_sd),
+            'meta': {
+                'dataset': dataset,
+                'model': model,
+                'noise': noise,
+                'optimizer': optimizer_name,
+                'run_id': run_id,
+            }
+        }, best_path)
+
+    if final_sd is not None:
+        last_path = os.path.join(folder, f"run_{run_id}_last.pt")
+        torch.save({
+            'epoch': len(metrics['test_acc']) if metrics.get('test_acc') else None,
+            'test_acc': final_acc,
+            'model_state_dict': _to_cpu_state_dict(final_sd),
+            'meta': {
+                'dataset': dataset,
+                'model': model,
+                'noise': noise,
+                'optimizer': optimizer_name,
+                'run_id': run_id,
+            }
+        }, last_path)
+
+    if best_path:
+        print(f"Saved best checkpoint to {best_path}")
+    if last_path:
+        print(f"Saved last checkpoint to {last_path}")
+
+    return best_path, last_path
+
+
 def aggregate_runs_and_save(dataset, model, noise, optimizer_name, base_dir='results'):
     """Aggregate all run CSVs for an optimizer and save summary JSON and Excel.
 

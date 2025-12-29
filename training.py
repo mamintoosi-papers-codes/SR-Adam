@@ -8,6 +8,7 @@ import torch.nn as nn
 import time
 from tqdm import tqdm
 from torch.cuda.amp import GradScaler, autocast
+from copy import deepcopy
 
 
 def train_epoch(model, train_loader, optimizer, criterion, device, epoch, num_epochs, show_progress=True):
@@ -119,6 +120,10 @@ def train_model(model, train_loader, test_loader, optimizer, criterion, num_epoc
     }
     
     model.to(device)
+
+    best_acc = float('-inf')
+    best_epoch = 0
+    best_state_dict = None
     
     for epoch in range(1, num_epochs + 1):
         start_time = time.time()
@@ -140,6 +145,12 @@ def train_model(model, train_loader, test_loader, optimizer, criterion, num_epoc
         metrics['train_acc'].append(train_acc)
         metrics['test_acc'].append(test_acc)
         metrics['epoch_time'].append(epoch_time)
+
+        # Track best test accuracy and snapshot model weights
+        if test_acc > best_acc:
+            best_acc = test_acc
+            best_epoch = epoch
+            best_state_dict = deepcopy(model.state_dict())
         
         # Only print for epoch 1 and multiples of 10 to reduce notebook spam
         if show_progress:
@@ -150,4 +161,10 @@ def train_model(model, train_loader, test_loader, optimizer, criterion, num_epoc
                 f'Time: {epoch_time:.2f}s'
             )
     
+    # Attach best/last model information for checkpoint saving
+    metrics['best_epoch'] = best_epoch
+    metrics['best_test_acc'] = best_acc if best_epoch > 0 else (metrics['test_acc'][-1] if metrics['test_acc'] else None)
+    metrics['best_state_dict'] = best_state_dict
+    metrics['final_state_dict'] = deepcopy(model.state_dict())
+
     return metrics
