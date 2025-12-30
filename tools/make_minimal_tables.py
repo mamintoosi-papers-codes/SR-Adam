@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 
 RESULTS_ROOT = os.path.join(os.path.dirname(__file__), 'results')
-OUT_DIR = os.path.join(os.path.dirname(__file__), 'paper_figures')
+OUT_DIR = os.path.join(os.path.dirname(__file__), '..', 'paper')
 os.makedirs(OUT_DIR, exist_ok=True)
 
 METHOD_ORDER = ["SGD", "Momentum", "Adam", "SR-Adam"]

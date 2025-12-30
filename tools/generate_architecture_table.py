@@ -105,7 +105,7 @@ def generate_architecture_content():
 
 if __name__ == '__main__':
     import os
-    out_dir = os.path.join('paper_figures')
+    out_dir = os.path.join('paper')
     os.makedirs(out_dir, exist_ok=True)
     
     # Write standalone table

@@ -16,17 +16,17 @@ import argparse
 import os
 import shutil
 
-from optimizers import (
+from src.optimizers import (
     SGDManual,
     MomentumManual,
     AdamBaseline,
     SRAdamAdaptiveLocal
 )
 
-from model import SimpleCNN, get_model
-from data import get_data_loaders
-from training import train_model
-from utils import (
+from src.model import SimpleCNN, get_model
+from src.data import get_data_loaders
+from src.training import train_model
+from src.utils import (
     create_results_directory,
     save_all_results,
     plot_results,

@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 RESULTS_ROOT = os.path.join(os.path.dirname(__file__), "results")
-FIG_DIR = os.path.join(os.path.dirname(__file__), "paper_figures")
+FIG_DIR = os.path.join(os.path.dirname(__file__), "..", "paper")
 os.makedirs(FIG_DIR, exist_ok=True)
 
 OPT_ORDER = ["SGD", "Momentum", "Adam", "SR-Adam"]

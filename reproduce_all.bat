@@ -36,9 +36,9 @@ if errorlevel 1 (
 )
 
 REM Activate pth environment
-call conda activate pth25gpu
+call conda activate pth
 if errorlevel 1 (
-    echo ERROR: Failed to activate 'pthpth25gpu' environment
+    echo ERROR: Failed to activate 'pth' environment
     exit /b 1
 )
 
@@ -50,8 +50,8 @@ echo ===========================================================================
 echo Note: All noise levels [0.0, 0.05, 0.1] are processed automatically
 echo.
 
-@REM python main.py --dataset ALL --model simplecnn --optimizers ALL --num_epochs 20 --num_runs 5 --batch_size 512
-@REM if errorlevel 1 goto error
+python main.py --dataset ALL --model simplecnn --optimizers ALL --num_epochs 20 --num_runs 5 --batch_size 512
+if errorlevel 1 goto error
 
 echo.
 echo [OK] Experiments completed!
@@ -65,10 +65,10 @@ echo Step 2: Aggregating Results
 echo ============================================================================
 echo.
 
-python regenerate_aggregates.py
+python tools\regenerate_aggregates.py
 if errorlevel 1 goto error
 
-python regenerate_summary_statistics.py
+python tools\regenerate_summary_statistics.py
 if errorlevel 1 goto error
 
 echo [OK] Results aggregated!
@@ -82,16 +82,16 @@ echo Step 3: Generating Publication-Ready Tables and Figures
 echo ============================================================================
 echo.
 
-python generate_architecture_table.py
+python tools\generate_architecture_table.py
 if errorlevel 1 goto error
 
-python make_minimal_tables.py
+python tools\make_minimal_tables.py
 if errorlevel 1 goto error
 
-python make_testacc_plots_simplecnn.py
+python tools\make_testacc_plots_simplecnn.py
 if errorlevel 1 goto error
 
-python make_loss_plots_simplecnn.py
+python tools\make_loss_plots_simplecnn.py
 if errorlevel 1 goto error
 
 echo [OK] All tables and figures generated!
@@ -105,13 +105,13 @@ echo Step 4: Compiling Final Paper
 echo ============================================================================
 echo.
 
-cd paper_figures
+cd paper
 
 pdflatex -interaction=nonstopmode paper-draft.tex >nul 2>&1
 pdflatex -interaction=nonstopmode paper-draft.tex >nul 2>&1
 
 if exist paper-draft.pdf (
-    echo [OK] Paper compiled: paper_figures\paper-draft.pdf
+    echo [OK] Paper compiled: paper\paper-draft.pdf
 ) else (
     echo ERROR: paper-draft.pdf not created
     goto error_paper
@@ -125,9 +125,9 @@ echo [SUCCESS] FULL PIPELINE COMPLETED!
 echo ============================================================================
 echo.
 echo Output:
-echo   - Paper:     paper_figures\paper-draft.pdf
-echo   - Tables:    paper_figures\*.tex
-echo   - Figures:   paper_figures\*.pdf
+echo   - Paper:     paper\paper-draft.pdf
+echo   - Tables:    paper\*.tex
+echo   - Figures:   paper\*.pdf
 echo   - Results:   results\summary_statistics.csv
 echo.
 pause
@@ -141,7 +141,7 @@ exit /b 1
 
 :error_paper
 echo.
-echo [ERROR] Paper compilation failed. Check paper_figures\paper-draft.log
+echo [ERROR] Paper compilation failed. Check paper\paper-draft.log
 pause
 exit /b 1
 

@@ -30,14 +30,19 @@ Notes:
 ```
 SR-Adam/
 ├── main.py                        # Experiment orchestrator (CIFAR10/100 grid)
-├── optimizers.py                  # Baselines + SR-Adam implementations
-├── model.py, data.py, training.py # Core pipeline
-├── utils.py                       # I/O and plotting helpers
+├── src/                           # Core modules
+│   ├── data.py
+│   ├── model.py
+│   ├── optimizers.py
+│   ├── training.py
+│   └── utils.py
+├── tools/                         # Aggregation, plots, tables, reporting utilities
 ├── REPRODUCE.md                   # Full reproducibility guide
 ├── QUICK_START.md                 # Minimal quick start
 ├── reproduce_all.bat              # Windows automation script
-├── paper_figures/                 # LaTeX paper + generated tables/figures
-└── results/                       # Outputs (created automatically)
+├── paper/                         # LaTeX paper + generated tables/figures
+├── results/                       # Metrics/plots (created automatically)
+└── runs/                          # Model checkpoints (git-ignored)
 ```
 
 ---
@@ -139,7 +144,7 @@ runs/
 │               └── run_5_last.pt
 ```
 
-**Note:** Model checkpoints (.pt files) are automatically saved to `runs/` directory to keep the repository lightweight. Use `move_models_to_runs.py` to migrate existing checkpoints from `results/` to `runs/` if needed.
+**Note:** Model checkpoints (.pt files) are automatically saved to `runs/` directory to keep the repository lightweight.
 
 ---
 
@@ -159,8 +164,20 @@ runs/
 
 ## Installation
 
+### Using pre-configured requirements:
+
 ```bash
-pip install torch torchvision matplotlib numpy pandas openpyxl tqdm
+# GPU (CUDA 12.4)
+pip install -r requirements.txt
+
+# CPU only
+pip install -r requirements-cpu.txt
+```
+
+### Or manually install core packages:
+
+```bash
+pip install torch torchvision matplotlib numpy pandas openpyxl tqdm seaborn scipy
 ```
 
 ---
@@ -196,6 +213,32 @@ If you use this code in your research, please cite:
 
 ---
 
-## License
+main.py
+└── src/
+  ├── model.py (SimpleCNN)
+  ├── data.py (CIFAR loaders with noise)
+  ├── training.py (train_model, evaluate)
+  ├── optimizers.py (SGD, Momentum, Adam, SR-Adam)
+  └── utils.py (save, aggregate, plot)
 
-MIT License - See LICENSE file for details
+Regeneration scripts (run from tools/):
+├── regenerate_aggregates.py
+├── regenerate_summary_statistics.py
+├── regenerate_epoch_pngs.py
+
+Table generators (tools/):
+├── make_minimal_tables.py
+├── generate_architecture_table.py
+├── make_method_tables.py
+
+Figure generators (tools/):
+├── make_testacc_plots_simplecnn.py
+├── make_loss_plots_simplecnn.py
+├── make_figures.py
+
+Paper:
+└── paper/paper-draft.tex
+  ├── \input{simplecnn_arch_content.tex}
+  ├── \input{sradam_grouping_content.tex}
+  ├── \input{experimental_figures.tex}
+  └── \input{minimal-tables-content.tex}

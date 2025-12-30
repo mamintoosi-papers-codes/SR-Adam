@@ -114,13 +114,13 @@ After experiments complete, aggregate per-run CSV files and generate summary sta
 conda activate pth
 
 # Regenerate aggregated files per optimizer per noise level
-python regenerate_aggregates.py
+python tools/regenerate_aggregates.py
 
 # Rebuild root summary_statistics.csv
-python regenerate_summary_statistics.py
+python tools/regenerate_summary_statistics.py
 
 # Regenerate epoch-level PNG plots
-python regenerate_epoch_pngs.py
+python tools/regenerate_epoch_pngs.py
 ```
 
 **Outputs:**
@@ -136,17 +136,17 @@ python regenerate_epoch_pngs.py
 conda activate pth
 
 # Generate method comparison tables (best/final Acc/Loss with bold best)
-python make_minimal_tables.py
+python tools/make_minimal_tables.py
 
 # Generate SimpleCNN architecture table
-python generate_architecture_table.py
+python tools/generate_architecture_table.py
 ```
 
 **Outputs:**
-- `paper_figures/minimal-tables.tex` – standalone compilable LaTeX
-- `paper_figures/minimal-tables-content.tex` – body-only for \input{}
-- `paper_figures/simplecnn_arch.tex` – architecture standalone
-- `paper_figures/simplecnn_arch_content.tex` – architecture body-only
+- `paper/minimal-tables.tex` – standalone compilable LaTeX
+- `paper/minimal-tables-content.tex` – body-only for \input{}
+- `paper/simplecnn_arch.tex` – architecture standalone
+- `paper/simplecnn_arch_content.tex` – architecture body-only
 
 ---
 
@@ -156,32 +156,32 @@ python generate_architecture_table.py
 conda activate pth
 
 # Generate loss and accuracy panels for SimpleCNN
-python make_loss_plots_simplecnn.py
-python make_testacc_plots_simplecnn.py
+python tools/make_loss_plots_simplecnn.py
+python tools/make_testacc_plots_simplecnn.py
 
 # Generate method comparison figures
-python make_figures.py
+python tools/make_figures.py
 ```
 
 **Outputs:**
-- `paper_figures/cifar10_noise0.0_acc_mean_std.pdf` (and 0.05, 0.1)
-- `paper_figures/cifar10_noise0.0_loss_mean_std.pdf` (and 0.05, 0.1)
-- `paper_figures/cifar100_noise0.0_acc_mean_std.pdf` (and 0.05, 0.1)
-- `paper_figures/cifar100_noise0.0_loss_mean_std.pdf` (and 0.05, 0.1)
-- `paper_figures/figures.pdf` – noise sweep and epoch plots
+- `paper/cifar10_noise0.0_acc_mean_std.pdf` (and 0.05, 0.1)
+- `paper/cifar10_noise0.0_loss_mean_std.pdf` (and 0.05, 0.1)
+- `paper/cifar100_noise0.0_acc_mean_std.pdf` (and 0.05, 0.1)
+- `paper/cifar100_noise0.0_loss_mean_std.pdf` (and 0.05, 0.1)
+- `paper/figures.pdf` – noise sweep and epoch plots
 
 ---
 
 ### Step 5: Compile the Paper
 
 ```bash
-cd paper_figures
+cd paper
 pdflatex -interaction=nonstopmode paper-draft.tex
 pdflatex -interaction=nonstopmode paper-draft.tex  # Run twice for cross-references
 ```
 
 **Output:**
-- `paper_figures/paper-draft.pdf` – final compiled paper with all tables/figures
+- `paper/paper-draft.pdf` – final compiled paper with all tables/figures
 
 ---
 
@@ -273,8 +273,8 @@ ls results/CIFAR10/simplecnn/noise_0.0/SGD/
 ### Issue: Figures PDFs missing when generating tables
 **Solution:** Re-run figure generation scripts first
 ```bash
-python make_testacc_plots_simplecnn.py
-python make_loss_plots_simplecnn.py
+python tools/make_testacc_plots_simplecnn.py
+python tools/make_loss_plots_simplecnn.py
 ```
 
 ---
@@ -283,33 +283,34 @@ python make_loss_plots_simplecnn.py
 
 ```
 main.py
-├── model.py (SimpleCNN)
-├── data.py (CIFAR loaders with noise)
-├── training.py (train_model, evaluate)
-├── optimizers.py (SGD, Momentum, Adam, SR-Adam)
-└── utils.py (save, aggregate, plot)
+└── src/
+   ├── model.py (SimpleCNN)
+   ├── data.py (CIFAR loaders with noise)
+   ├── training.py (train_model, evaluate)
+   ├── optimizers.py (SGD, Momentum, Adam, SR-Adam)
+   └── utils.py (save, aggregate, plot)
 
-Regeneration scripts:
+Regeneration scripts (tools/):
 ├── regenerate_aggregates.py
 ├── regenerate_summary_statistics.py
 ├── regenerate_epoch_pngs.py
 
-Table generators:
+Table generators (tools/):
 ├── make_minimal_tables.py
 ├── generate_architecture_table.py
 ├── make_method_tables.py
 
-Figure generators:
+Figure generators (tools/):
 ├── make_testacc_plots_simplecnn.py
 ├── make_loss_plots_simplecnn.py
 ├── make_figures.py
 
 Paper:
-└── paper_figures/paper-draft.tex
-    ├── \input{simplecnn_arch_content.tex}
-    ├── \input{sradam_grouping_content.tex}
-    ├── \input{experimental_figures.tex}
-    └── \input{minimal-tables-content.tex}
+└── paper/paper-draft.tex
+   ├── \input{simplecnn_arch_content.tex}
+   ├── \input{sradam_grouping_content.tex}
+   ├── \input{experimental_figures.tex}
+   └── \input{minimal-tables-content.tex}
 ```
 
 ---

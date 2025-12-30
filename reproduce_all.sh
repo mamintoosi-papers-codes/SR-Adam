@@ -38,10 +38,10 @@ if ! command -v conda &> /dev/null; then
 fi
 
 # Check if pth environment exists
-if ! conda env list | grep -q "pth25gpu"; then
-    echo -e "${RED}ERROR: 'pth25gpu' conda environment not found${NC}"
+if ! conda env list | grep -q "^pth "; then
+    echo -e "${RED}ERROR: 'pth' conda environment not found${NC}"
     echo "Please create it:"
-    echo "  conda create -n pth25gpu python=3.10 pytorch torchvision pytorch-cuda=11.8 -c pytorch -c nvidia"
+    echo "  conda create -n pth python=3.10 pytorch torchvision pytorch-cuda=11.8 -c pytorch -c nvidia"
     exit 1
 fi
 
@@ -50,38 +50,19 @@ echo ""
 
 # Activate pth environment
 source $(conda info --base)/etc/profile.d/conda.sh
-conda activate pth25gpu
+conda activate pth
 
 echo ""
 echo "============================================================================"
 echo "Step 1: Running Experiments"
 echo "============================================================================"
-echo "This will run 30 configurations:"
-echo "   - 2 datasets (CIFAR10, CIFAR100)"
-echo "   - 3 noise levels (0.0, 0.05, 0.1)"
-echo "   - 5 seeds per config"
+echo "All noise levels [0.0, 0.05, 0.1] are processed automatically"
 echo "Expected time: ~2-3 hours on GPU"
 echo ""
 echo "Press ENTER to start, or Ctrl+C to cancel"
 read
 
-echo -e "${YELLOW}[1/6] CIFAR10, noise=0.0${NC}"
-python main.py --dataset CIFAR10 --noise 0.0 --num_epochs 20 --batch_size 2048
-
-echo -e "${YELLOW}[2/6] CIFAR10, noise=0.05${NC}"
-python main.py --dataset CIFAR10 --noise 0.05 --num_epochs 20 --batch_size 2048
-
-echo -e "${YELLOW}[3/6] CIFAR10, noise=0.1${NC}"
-python main.py --dataset CIFAR10 --noise 0.1 --num_epochs 20 --batch_size 2048
-
-echo -e "${YELLOW}[4/6] CIFAR100, noise=0.0${NC}"
-python main.py --dataset CIFAR100 --noise 0.0 --num_epochs 20 --batch_size 2048
-
-echo -e "${YELLOW}[5/6] CIFAR100, noise=0.05${NC}"
-python main.py --dataset CIFAR100 --noise 0.05 --num_epochs 20 --batch_size 2048
-
-echo -e "${YELLOW}[6/6] CIFAR100, noise=0.1${NC}"
-python main.py --dataset CIFAR100 --noise 0.1 --num_epochs 20 --batch_size 2048
+python main.py --dataset ALL --model simplecnn --optimizers ALL --num_epochs 20 --num_runs 5 --batch_size 2048
 
 echo ""
 echo -e "${GREEN}✓ Experiments completed!${NC}"
@@ -96,13 +77,13 @@ echo "==========================================================================
 echo ""
 
 echo -e "${YELLOW}Running regenerate_aggregates.py${NC}"
-python regenerate_aggregates.py
+python tools/regenerate_aggregates.py
 
 echo -e "${YELLOW}Running regenerate_summary_statistics.py${NC}"
-python regenerate_summary_statistics.py
+python tools/regenerate_summary_statistics.py
 
 echo -e "${YELLOW}Running regenerate_epoch_pngs.py${NC}"
-python regenerate_epoch_pngs.py
+python tools/regenerate_epoch_pngs.py
 
 echo ""
 echo -e "${GREEN}✓ Results aggregated!${NC}"
@@ -117,19 +98,19 @@ echo "==========================================================================
 echo ""
 
 echo -e "${YELLOW}Generating architecture table${NC}"
-python generate_architecture_table.py
+python tools/generate_architecture_table.py
 
 echo -e "${YELLOW}Generating method comparison tables${NC}"
-python make_minimal_tables.py
+python tools/make_minimal_tables.py
 
 echo -e "${YELLOW}Generating accuracy figures${NC}"
-python make_testacc_plots_simplecnn.py
+python tools/make_testacc_plots_simplecnn.py
 
 echo -e "${YELLOW}Generating loss figures${NC}"
-python make_loss_plots_simplecnn.py
+python tools/make_loss_plots_simplecnn.py
 
 echo -e "${YELLOW}Generating comparison figures${NC}"
-python make_figures.py
+python tools/make_figures.py
 
 echo ""
 echo -e "${GREEN}✓ All tables and figures generated!${NC}"
@@ -143,7 +124,7 @@ echo "Step 4: Compiling Final Paper"
 echo "============================================================================"
 echo ""
 
-cd paper_figures
+cd paper
 
 echo -e "${YELLOW}First LaTeX pass (cross-references)${NC}"
 pdflatex -interaction=nonstopmode paper-draft.tex > /dev/null 2>&1 || true
@@ -154,10 +135,10 @@ pdflatex -interaction=nonstopmode paper-draft.tex > /dev/null 2>&1
 if [ -f paper-draft.pdf ]; then
     echo ""
     echo -e "${GREEN}✓ Paper compiled successfully!${NC}"
-    echo "Output: paper_figures/paper-draft.pdf"
+    echo "Output: paper/paper-draft.pdf"
 else
     echo -e "${RED}ERROR: paper-draft.pdf not found after compilation${NC}"
-    echo "Check: paper_figures/paper-draft.log"
+    echo "Check: paper/paper-draft.log"
     exit 1
 fi
 
@@ -170,9 +151,9 @@ echo "==========================================================================
 echo ""
 echo "Output locations:"
 echo "   - Results: results/"
-echo "   - Tables: paper_figures/minimal-tables.tex"
-echo "   - Figures: paper_figures/*.pdf"
-echo "   - Paper: paper_figures/paper-draft.pdf"
+echo "   - Tables: paper/*.tex"
+echo "   - Figures: paper/*.pdf"
+echo "   - Paper: paper/paper-draft.pdf"
 echo ""
 echo "Next steps:"
 echo "   1. Review paper_figures/paper-draft.pdf"

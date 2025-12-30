@@ -43,17 +43,17 @@ If experiments already exist in `results/`, regenerate tables and figures only:
 conda activate pth
 
 # Regenerate all outputs
-python regenerate_aggregates.py
-python regenerate_summary_statistics.py
-python regenerate_epoch_pngs.py
-python make_minimal_tables.py
-python generate_architecture_table.py
-python make_testacc_plots_simplecnn.py
-python make_loss_plots_simplecnn.py
-python make_figures.py
+python tools/regenerate_aggregates.py
+python tools/regenerate_summary_statistics.py
+python tools/regenerate_epoch_pngs.py
+python tools/make_minimal_tables.py
+python tools/generate_architecture_table.py
+python tools/make_testacc_plots_simplecnn.py
+python tools/make_loss_plots_simplecnn.py
+python tools/make_figures.py
 
 # Compile paper
-cd paper_figures
+cd paper
 pdflatex -interaction=nonstopmode paper-draft.tex
 pdflatex -interaction=nonstopmode paper-draft.tex
 ```
@@ -90,7 +90,7 @@ results/
 
 ### Publication Outputs
 ```
-paper_figures/
+paper/
 ├── minimal-tables.tex (standalone, compilable)
 ├── minimal-tables-content.tex (for \input{})
 ├── simplecnn_arch.tex
@@ -147,7 +147,7 @@ After running the full pipeline:
 
 - [ ] `results/CIFAR10/simplecnn/noise_0.0/SGD/` contains 5 `run_*.csv` files
 - [ ] `results/summary_statistics.csv` has 24 rows (2 datasets × 3 noises × 4 methods)
-- [ ] `paper_figures/paper-draft.pdf` exists and opens
+- [ ] `paper/paper-draft.pdf` exists and opens
 - [ ] Paper contains all 4 figures (CIFAR10/100 × Acc/Loss)
 - [ ] Paper contains all 5 tables (architecture, grouping, best acc/loss, final acc/loss)
 - [ ] No "undefined reference" warnings in LaTeX compilation
@@ -159,10 +159,10 @@ After running the full pipeline:
 ### Q: How do I re-run only CIFAR10 experiments?
 ```bash
 conda activate pth
-python main.py --dataset CIFAR10 --noise 0.0
-python main.py --dataset CIFAR10 --noise 0.05
-python main.py --dataset CIFAR10 --noise 0.1
+python main.py --dataset CIFAR10
 ```
+Note: All noise levels [0.0, 0.05, 0.1] run automatically
+
 
 ### Q: How do I change noise levels?
 Edit the grid in `main.py` line ~180:
@@ -181,9 +181,10 @@ python main.py --dataset CIFAR10 --noise 0.0
 ### Q: How do I revert to the original results?
 ```bash
 git checkout results/  # Restore from version control
-python regenerate_aggregates.py
-python make_minimal_tables.py
+python tools/regenerate_aggregates.py
+python tools/make_minimal_tables.py
 ```
+
 
 ---
 

@@ -14,7 +14,7 @@ import json
 import argparse
 
 # Import model architecture
-from model import get_model
+from src.model import get_model
 
 
 def load_checkpoint(checkpoint_path, model, device='cpu'):
@@ -83,7 +83,7 @@ def get_cifar_classes(dataset_name):
 
 
 def generate_comparison_table(dataset='CIFAR10', noise=0.05, num_samples=10, 
-                               save_path='paper_figures/qualitative_comparison.pdf',
+                               save_path='paper/qualitative_comparison.pdf',
                                runs_root='runs', random_seed=None):
     """
     Generate comparison table showing sample images with Adam vs SR-Adam predictions.
@@ -262,7 +262,7 @@ if __name__ == "__main__":
     # Generate comparison
     dataset_lower = dataset.lower()
     noise_str = str(noise).replace('.', '')
-    save_path = f'paper_figures/qualitative_{dataset_lower}_noise{noise_str}.pdf'
+    save_path = f'paper/qualitative_{dataset_lower}_noise{noise_str}.pdf'
     
     print(f"Generating qualitative comparison figure for {dataset} with noise={noise}...")
     if seed is not None:
@@ -303,12 +303,12 @@ if __name__ == "__main__":
         "note": "checkpoint_best_selected shows the single best run accuracy displayed in PDF"
     }
     
-    os.makedirs('paper_figures', exist_ok=True)
+    os.makedirs('paper', exist_ok=True)
     json_name = f'qualitative_accuracy_comparison_{dataset_lower}_noise{noise_str}.json'
-    with open(f'paper_figures/{json_name}', 'w') as f:
+    with open(f'paper/{json_name}', 'w') as f:
         json.dump(comparison, f, indent=2)
     
-    print(f"\n✓ Saved comparison to paper_figures/{json_name}")
+    print(f"\n✓ Saved comparison to paper/{json_name}")
     print(f"\n✓ Figure saved to {save_path}")
     print("\nKEY INSIGHT:")
     print("  - Table shows MEAN ± STD across 5 runs")
