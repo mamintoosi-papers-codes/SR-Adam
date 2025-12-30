@@ -36,9 +36,9 @@ if errorlevel 1 (
 )
 
 REM Activate pth environment
-call conda activate pth
+call conda activate pth25gpu
 if errorlevel 1 (
-    echo ERROR: Failed to activate 'pth' environment
+    echo ERROR: Failed to activate 'pthpth25gpu' environment
     exit /b 1
 )
 
@@ -50,8 +50,8 @@ echo ===========================================================================
 echo Note: All noise levels [0.0, 0.05, 0.1] are processed automatically
 echo.
 
-python main.py --dataset ALL --model simplecnn --optimizers ALL --num_epochs 20 --num_runs 5 --batch_size 512
-if errorlevel 1 goto error
+@REM python main.py --dataset ALL --model simplecnn --optimizers ALL --num_epochs 20 --num_runs 5 --batch_size 512
+@REM if errorlevel 1 goto error
 
 echo.
 echo [OK] Experiments completed!

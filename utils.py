@@ -68,12 +68,12 @@ def _to_cpu_state_dict(state_dict):
     return {k: (v.detach().cpu() if hasattr(v, 'detach') else v) for k, v in state_dict.items()}
 
 
-def save_run_checkpoints(dataset, model, noise, optimizer_name, run_id, metrics, base_dir='results'):
+def save_run_checkpoints(dataset, model, noise, optimizer_name, run_id, metrics, base_dir='runs'):
     """Save best and last model checkpoints for a single run.
 
     Paths:
-      results/{dataset}/{model}/noise_{noise}/{optimizer_name}/run_{run_id}_best.pt
-      results/{dataset}/{model}/noise_{noise}/{optimizer_name}/run_{run_id}_last.pt
+      runs/{dataset}/{model}/noise_{noise}/{optimizer_name}/run_{run_id}_best.pt
+      runs/{dataset}/{model}/noise_{noise}/{optimizer_name}/run_{run_id}_last.pt
     """
     folder = os.path.join(base_dir, dataset, model, f"noise_{noise}", optimizer_name)
     os.makedirs(folder, exist_ok=True)

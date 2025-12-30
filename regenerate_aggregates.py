@@ -20,9 +20,9 @@ def aggregate_runs_and_save(folder):
     summary = {
         'num_runs': len(runs),
         'final_test_acc_mean': float(np.mean(final_accs)),
-        'final_test_acc_std': float(np.std(final_accs, ddof=0)),
+        'final_test_acc_std': float(np.std(final_accs, ddof=1)),
         'best_test_acc_mean': float(np.mean(best_accs)),
-        'best_test_acc_std': float(np.std(best_accs, ddof=0)),
+        'best_test_acc_std': float(np.std(best_accs, ddof=1)),
     }
 
     summary_path = os.path.join(folder, 'aggregated_summary.json')

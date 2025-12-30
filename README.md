@@ -102,19 +102,40 @@ Where:
 
 ## Output Files
 
-Results are saved under `results/<dataset>/<model>/noise_<v>/<optimizer>/` with per-run CSV/JSON, epoch plots, and aggregated summaries. A global `summary_statistics.csv` is also produced.
+Training produces two main output directories:
 
-Example:
+### `results/` - Metrics and Summaries
+CSV files, JSON metadata, aggregated statistics, and plots (kept in version control):
 ```
 results/
 ├── CIFAR10/
 │   └── simplecnn/
 │       ├── noise_0.0/
-│       │   ├── Adam/run_1.csv
-│       │   └── SR-Adam/run_5_meta.json
+│       │   ├── Adam/
+│       │   │   ├── run_1.csv              # Per-epoch metrics
+│       │   │   ├── run_1_meta.json        # Final summary
+│       │   │   └── aggregated_summary.json # Mean ± std across runs
+│       │   └── SR-Adam/...
 │       └── noise_0.1/test_acc_epoch_mean_std.png
 └── summary_statistics.csv
 ```
+
+### `runs/` - Model Checkpoints
+PyTorch model files (excluded from git via `.gitignore` to save space):
+```
+runs/
+├── CIFAR10/
+│   └── simplecnn/
+│       └── noise_0.05/
+│           ├── Adam/
+│           │   ├── run_1_best.pt   # Best epoch checkpoint
+│           │   └── run_1_last.pt   # Final epoch checkpoint
+│           └── SR-Adam/
+│               ├── run_1_best.pt
+│               └── run_5_last.pt
+```
+
+**Note:** Model checkpoints (.pt files) are automatically saved to `runs/` directory to keep the repository lightweight. Use `move_models_to_runs.py` to migrate existing checkpoints from `results/` to `runs/` if needed.
 
 ---
 

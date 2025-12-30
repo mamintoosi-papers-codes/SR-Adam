@@ -38,10 +38,10 @@ if ! command -v conda &> /dev/null; then
 fi
 
 # Check if pth environment exists
-if ! conda env list | grep -q "pth"; then
-    echo -e "${RED}ERROR: 'pth' conda environment not found${NC}"
+if ! conda env list | grep -q "pth25gpu"; then
+    echo -e "${RED}ERROR: 'pth25gpu' conda environment not found${NC}"
     echo "Please create it:"
-    echo "  conda create -n pth python=3.10 pytorch torchvision pytorch-cuda=11.8 -c pytorch -c nvidia"
+    echo "  conda create -n pth25gpu python=3.10 pytorch torchvision pytorch-cuda=11.8 -c pytorch -c nvidia"
     exit 1
 fi
 
@@ -50,7 +50,7 @@ echo ""
 
 # Activate pth environment
 source $(conda info --base)/etc/profile.d/conda.sh
-conda activate pth
+conda activate pth25gpu
 
 echo ""
 echo "============================================================================"

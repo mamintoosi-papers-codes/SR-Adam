@@ -26,13 +26,13 @@ def compute_stats(runs):
     bests_loss = [float(r['Test Loss'].min()) for r in runs]
     return {
         'final_acc_mean': float(np.mean(finals_acc)),
-        'final_acc_std': float(np.std(finals_acc, ddof=0)),
+        'final_acc_std': float(np.std(finals_acc, ddof=1)),
         'best_acc_mean': float(np.mean(bests_acc)),
-        'best_acc_std': float(np.std(bests_acc, ddof=0)),
+        'best_acc_std': float(np.std(bests_acc, ddof=1)),
         'final_loss_mean': float(np.mean(finals_loss)),
-        'final_loss_std': float(np.std(finals_loss, ddof=0)),
+        'final_loss_std': float(np.std(finals_loss, ddof=1)),
         'best_loss_mean': float(np.mean(bests_loss)),
-        'best_loss_std': float(np.std(bests_loss, ddof=0)),
+        'best_loss_std': float(np.std(bests_loss, ddof=1)),
     }
 
 

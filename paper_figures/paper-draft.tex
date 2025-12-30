@@ -102,6 +102,27 @@ Tables \ref{tab:method_best_acc} and \ref{tab:method_best_loss} report the best 
 
 \input{minimal-tables-content.tex}
 
+\subsubsection{Qualitative Analysis: Prediction Visualization}
+To complement the quantitative metrics, we present a visual comparison of model predictions at noise level 0.05. Figures \ref{fig:qualitative_cifar10} and \ref{fig:qualitative_cifar100} display sample test images along with predictions from both Adam and SR-Adam using their respective best-performing checkpoints (highest test accuracy across 5 runs).
+
+Each figure shows 10 randomly sampled test images arranged in columns. The top row displays the ground truth label, while the middle and bottom rows show Adam and SR-Adam predictions with their confidence scores. Correct predictions are marked in green; incorrect ones in red. The accuracies shown in parentheses correspond to the single best run selected for visualization.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=0.95\textwidth]{qualitative_cifar10_noise005.pdf}
+    \caption{Qualitative comparison on CIFAR10 with 5\% label noise. Each column shows a test image with its true label (top), Adam prediction (middle), and SR-Adam prediction (bottom). Predictions include class name and confidence score. Green indicates correct classification; red indicates misclassification. The accuracies in parentheses (74.7\% for Adam, 76.2\% for SR-Adam) represent the best single run out of 5 independent runs, selected for visualization clarity. Note that these values differ from the aggregated statistics in Table \ref{tab:method_best_acc} (73.95±0.44\% for Adam, 75.84±0.31\% for SR-Adam), which report mean ± std across all runs. SR-Adam demonstrates more confident and accurate predictions on challenging samples, particularly on visually similar classes like cats/dogs and automobiles/trucks.}
+    \label{fig:qualitative_cifar10}
+\end{figure*}
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=0.95\textwidth]{qualitative_cifar100_noise005.pdf}
+    \caption{Qualitative comparison on CIFAR100 with 5\% label noise. Similar to Figure \ref{fig:qualitative_cifar10}, this visualization shows sample predictions from the best-performing checkpoints. CIFAR100's 100-class taxonomy presents a significantly harder recognition task than CIFAR10. The fine-grained categories (e.g., distinguishing between different tree species or vehicle types) require more nuanced feature learning. SR-Adam's shrinkage mechanism helps stabilize gradient estimates in this high-noise, high-complexity regime, leading to more robust decision boundaries. The confidence scores reveal that SR-Adam produces higher-confidence predictions on correctly classified samples, suggesting improved calibration and reduced uncertainty.}
+    \label{fig:qualitative_cifar100}
+\end{figure*}
+
+These visualizations reveal several key insights: (1) SR-Adam tends to produce higher confidence scores on correctly classified samples, suggesting better calibration; (2) on misclassified samples, both methods often confuse visually similar classes (e.g., cats vs dogs, trucks vs automobiles), but SR-Adam demonstrates slightly better discrimination; (3) the shrinkage mechanism appears particularly beneficial for challenging, ambiguous samples where the raw gradient signal is noisy. While the quantitative improvement is modest (approximately 2 percentage points), the qualitative analysis shows that SR-Adam's adaptive shrinkage translates to more confident and stable predictions in practice.
+
 \section{Discussion and Conclusion}
 The SR-Adam algorithm introduces a rigorous statistical "gate" to the optimization process. In regimes of high uncertainty (early training or noisy batches), the term $\frac{(p-2)\sigma^2}{D_n}$ dominates, and $c_t \to 0$. The optimizer effectively rejects the noisy observation $\mathbf{g}_t$ and defaults to the stable momentum $\mathbf{m}_{t-1}$. As training stabilizes and variance decreases, $c_t \to 1$, recovering the standard Adam behavior.
 This methodology demonstrates that the inadmissibility of high-dimensional estimators is not merely a theoretical curiosity but a practical lever for improving deep learning optimization. Future work will extend this to Preliminary Test (PT) strategies for dynamic network pruning.

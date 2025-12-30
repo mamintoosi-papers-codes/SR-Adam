@@ -285,7 +285,7 @@ def main():
 
                     # Save best and last model checkpoints for reproducible figures
                     try:
-                        save_run_checkpoints(dataset_name, model_name, noise, opt_name, run + 1, metrics)
+                        save_run_checkpoints(dataset_name, model_name, noise, opt_name, run + 1, metrics, base_dir='runs')
                     except Exception as e:
                         print(f"Checkpoint saving failed: {e}")
 

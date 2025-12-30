@@ -11,6 +11,7 @@ import numpy as np
 import os
 from pathlib import Path
 import json
+import argparse
 
 # Import model architecture
 from model import get_model
@@ -83,7 +84,7 @@ def get_cifar_classes(dataset_name):
 
 def generate_comparison_table(dataset='CIFAR10', noise=0.05, num_samples=10, 
                                save_path='paper_figures/qualitative_comparison.pdf',
-                               runs_root='runs'):
+                               runs_root='runs', random_seed=None):
     """
     Generate comparison table showing sample images with Adam vs SR-Adam predictions.
     
@@ -93,7 +94,13 @@ def generate_comparison_table(dataset='CIFAR10', noise=0.05, num_samples=10,
         num_samples: number of images to show
         save_path: where to save the figure
         runs_root: root directory for model checkpoints
+        random_seed: seed for sample selection (None = random each time)
     """
+    # Set random seed for reproducible sample selection
+    if random_seed is not None:
+        np.random.seed(random_seed)
+        print(f"Using random seed: {random_seed}")
+    
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     # Load class names
@@ -118,8 +125,15 @@ def generate_comparison_table(dataset='CIFAR10', noise=0.05, num_samples=10,
     adam_path, adam_acc = get_best_run('Adam', dataset, 'simplecnn', noise, runs_root)
     sradam_path, sradam_acc = get_best_run('SR-Adam', dataset, 'simplecnn', noise, runs_root)
     
-    print(f"Adam best: {adam_path} (acc={adam_acc:.2f}%)")
-    print(f"SR-Adam best: {sradam_path} (acc={sradam_acc:.2f}%)")
+    print(f"\n{'='*60}")
+    print(f"LOADED CHECKPOINT ACCURACIES (from best.pt files):")
+    print(f"{'='*60}")
+    print(f"Adam best checkpoint:    {adam_acc:.2f}%")
+    print(f"SR-Adam best checkpoint: {sradam_acc:.2f}%")
+    print(f"{'='*60}")
+    print(f"Adam best: {adam_path}")
+    print(f"SR-Adam best: {sradam_path}")
+    print(f"{'='*60}\n")
     
     # Load models
     adam_model = get_model('simplecnn', num_classes=num_classes).to(device)
@@ -129,7 +143,6 @@ def generate_comparison_table(dataset='CIFAR10', noise=0.05, num_samples=10,
     sradam_model, _ = load_checkpoint(sradam_path, sradam_model, device)
     
     # Select diverse samples (try to get variety of classes)
-    # Use random seed each time for different samples
     indices = []
     classes_seen = set()
     
@@ -206,20 +219,101 @@ def generate_comparison_table(dataset='CIFAR10', noise=0.05, num_samples=10,
 
 
 if __name__ == "__main__":
-    # Generate comparison for CIFAR10 at noise=0.05
+    import json
+    
+    parser = argparse.ArgumentParser(description='Generate qualitative comparison figures for paper')
+    parser.add_argument('--dataset', type=str, default='CIFAR10', choices=['CIFAR10', 'CIFAR100'],
+                        help='Dataset name (default: CIFAR10)')
+    parser.add_argument('--noise', type=float, default=0.05, choices=[0.0, 0.05, 0.1],
+                        help='Noise level (default: 0.05)')
+    parser.add_argument('--seed', type=int, default=None,
+                        help='Random seed for sample selection (default: None=random). Try different seeds like 42, 123, 999 to find best visualization')
+    parser.add_argument('--num-samples', type=int, default=10,
+                        help='Number of samples to display (default: 10)')
+    parser.add_argument('--runs-root', type=str, default='runs',
+                        help='Root directory for model checkpoints (default: runs)')
+    
+    args = parser.parse_args()
+    
+    dataset = args.dataset
+    noise = args.noise
+    seed = args.seed
+    
+    # Print aggregated summary values for verification
+    print("\n" + "="*70)
+    print(f"AGGREGATED SUMMARY (from results/.../aggregated_summary.json):")
+    print(f"Dataset: {dataset}, Noise: {noise}")
+    if seed is not None:
+        print(f"Random Seed: {seed}")
+    print("="*70)
+    
+    summary_data = {}
+    for opt in ['Adam', 'SR-Adam']:
+        json_path = f'results/{dataset}/simplecnn/noise_{noise}/{opt}/aggregated_summary.json'
+        if os.path.exists(json_path):
+            with open(json_path, 'r') as f:
+                data = json.load(f)
+            print(f"\n{opt}:")
+            print(f"  Final: {data['final_test_acc_mean']:.2f} ± {data['final_test_acc_std']:.2f}%")
+            print(f"  Best:  {data['best_test_acc_mean']:.2f} ± {data['best_test_acc_std']:.2f}%")
+            summary_data[opt] = data
+    print("="*70 + "\n")
+    
+    # Generate comparison
+    dataset_lower = dataset.lower()
+    noise_str = str(noise).replace('.', '')
+    save_path = f'paper_figures/qualitative_{dataset_lower}_noise{noise_str}.pdf'
+    
+    print(f"Generating qualitative comparison figure for {dataset} with noise={noise}...")
+    if seed is not None:
+        print(f"TIP: Try different seeds (e.g., --seed 42, --seed 123, --seed 999) to find the most informative samples!")
+    
     generate_comparison_table(
-        dataset='CIFAR10',
-        noise=0.05,
-        num_samples=10,
-        save_path='paper_figures/qualitative_cifar10_noise005.pdf',
-        runs_root='runs'  # or 'results' if models not yet moved
+        dataset=dataset,
+        noise=noise,
+        num_samples=args.num_samples,
+        save_path=save_path,
+        runs_root=args.runs_root,
+        random_seed=seed
     )
     
-    # Optionally generate for CIFAR100 too
-    # generate_comparison_table(
-    #     dataset='CIFAR100',
-    #     noise=0.05,
-    #     num_samples=10,
-    #     save_path='paper_figures/qualitative_cifar100_noise005.pdf',
-    #     runs_root='runs'
-    # )
+    # After generation, load the checkpoint accuracies that were used
+    print("\n" + "="*70)
+    print("CHECKPOINT ACCURACIES USED IN PDF (from best.pt files):")
+    print("="*70)
+    
+    checkpoint_accs = {}
+    for opt in ['Adam', 'SR-Adam']:
+        try:
+            _, acc = get_best_run(opt, dataset, 'simplecnn', noise, args.runs_root)
+            checkpoint_accs[opt] = acc
+            print(f"{opt}: {acc:.2f}%")
+        except Exception as e:
+            print(f"{opt}: Error - {e}")
+    
+    print("="*70)
+    
+    # Save comparison to JSON
+    comparison = {
+        "dataset": dataset,
+        "noise": noise,
+        "random_seed": seed,
+        "aggregated_summary": summary_data,
+        "checkpoint_best_selected": checkpoint_accs,
+        "note": "checkpoint_best_selected shows the single best run accuracy displayed in PDF"
+    }
+    
+    os.makedirs('paper_figures', exist_ok=True)
+    json_name = f'qualitative_accuracy_comparison_{dataset_lower}_noise{noise_str}.json'
+    with open(f'paper_figures/{json_name}', 'w') as f:
+        json.dump(comparison, f, indent=2)
+    
+    print(f"\n✓ Saved comparison to paper_figures/{json_name}")
+    print(f"\n✓ Figure saved to {save_path}")
+    print("\nKEY INSIGHT:")
+    print("  - Table shows MEAN ± STD across 5 runs")
+    print("  - PDF shows accuracy of the BEST SINGLE RUN (highest checkpoint)")
+    print("  - This explains why PDF values differ from table values!")
+    if seed is not None:
+        print(f"\nUsed seed={seed}. To try different samples, use --seed with another value.")
+    print("="*70 + "\n")
