@@ -129,7 +129,7 @@ def generate_comparison_table(dataset='CIFAR10', noise=0.05, num_samples=10,
     sradam_model, _ = load_checkpoint(sradam_path, sradam_model, device)
     
     # Select diverse samples (try to get variety of classes)
-    np.random.seed(42)
+    # Use random seed each time for different samples
     indices = []
     classes_seen = set()
     
@@ -141,15 +141,17 @@ def generate_comparison_table(dataset='CIFAR10', noise=0.05, num_samples=10,
         if len(indices) >= num_samples:
             break
     
-    # Create figure
-    fig, axes = plt.subplots(num_samples, 3, figsize=(12, 3*num_samples))
+    # Create figure: TRANSPOSED layout (3 rows × num_samples columns)
+    # Rows: True Label, Adam, SR-Adam
+    # Columns: Sample images
+    fig, axes = plt.subplots(3, num_samples, figsize=(2*num_samples, 7))
     
     if num_samples == 1:
-        axes = axes.reshape(1, -1)
+        axes = axes.reshape(-1, 1)
     
     print(f"\nGenerating predictions for {num_samples} samples...")
     
-    for row, idx in enumerate(indices):
+    for col, idx in enumerate(indices):
         image, true_label = testset[idx]
         
         # Predict with both models
@@ -169,31 +171,31 @@ def generate_comparison_table(dataset='CIFAR10', noise=0.05, num_samples=10,
         img_np = img_np * 0.5 + 0.5  # denormalize
         img_np = np.clip(img_np, 0, 1)
         
-        # Display image
-        axes[row, 0].imshow(img_np)
-        axes[row, 0].set_title(f'True: {class_names[true_label]}', fontweight='bold')
-        axes[row, 0].axis('off')
+        # Row 0: Ground Truth
+        axes[0, col].imshow(img_np)
+        axes[0, col].set_title(f'{class_names[true_label]}', fontsize=10, fontweight='bold')
+        axes[0, col].axis('off')
         
-        # Display Adam prediction
+        # Row 1: Adam prediction
         adam_color = 'green' if adam_pred == true_label else 'red'
-        axes[row, 1].imshow(img_np)
-        axes[row, 1].set_title(f'Adam: {class_names[adam_pred]}\n(conf={adam_conf:.2f})', 
-                               color=adam_color, fontweight='bold')
-        axes[row, 1].axis('off')
+        axes[1, col].imshow(img_np)
+        axes[1, col].set_title(f'{class_names[adam_pred]}\n({adam_conf:.2f})', 
+                               color=adam_color, fontsize=9, fontweight='bold')
+        axes[1, col].axis('off')
         
-        # Display SR-Adam prediction
+        # Row 2: SR-Adam prediction
         sradam_color = 'green' if sradam_pred == true_label else 'red'
-        axes[row, 2].imshow(img_np)
-        axes[row, 2].set_title(f'SR-Adam: {class_names[sradam_pred]}\n(conf={sradam_conf:.2f})', 
-                               color=sradam_color, fontweight='bold')
-        axes[row, 2].axis('off')
+        axes[2, col].imshow(img_np)
+        axes[2, col].set_title(f'{class_names[sradam_pred]}\n({sradam_conf:.2f})', 
+                               color=sradam_color, fontsize=9, fontweight='bold')
+        axes[2, col].axis('off')
     
-    # Add column headers
-    fig.text(0.18, 0.98, 'Ground Truth', ha='center', fontsize=14, fontweight='bold')
-    fig.text(0.50, 0.98, f'Adam ({adam_acc:.1f}%)', ha='center', fontsize=14, fontweight='bold')
-    fig.text(0.82, 0.98, f'SR-Adam ({sradam_acc:.1f}%)', ha='center', fontsize=14, fontweight='bold')
+    # Add row labels on the left
+    fig.text(0.02, 0.75, 'Ground\nTruth', ha='center', va='center', fontsize=12, fontweight='bold', rotation=0)
+    fig.text(0.02, 0.50, f'Adam\n({adam_acc:.1f}%)', ha='center', va='center', fontsize=12, fontweight='bold', rotation=0)
+    fig.text(0.02, 0.25, f'SR-Adam\n({sradam_acc:.1f}%)', ha='center', va='center', fontsize=12, fontweight='bold', rotation=0)
     
-    plt.tight_layout(rect=[0, 0, 1, 0.97])
+    plt.tight_layout(rect=[0.05, 0, 1, 1])
     
     # Save
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
