@@ -54,7 +54,6 @@ SR-Adam/
 - **Momentum** - SGD with heavy-ball momentum  
 - **Adam** - Adaptive Moment Estimation
 
-### Stein-Rule Variants
 ### Stein-Rule Optimizer
 - **SR-Adam** - Adaptive Stein-rule gradient shrinkage using Adam moments; applied to convolutional layers where shrinkage is most effective
 
@@ -206,13 +205,14 @@ If you use this code in your research, please cite:
 @misc{sr-adam,
   title={SR-Adam: Stein-Rule Adaptive Moment Estimation},
   author={M.Arashi},
-  year={2025},
+  year={2026},
   url={https://github.com/mamintoosi-papers-codes/SR-Adam}
 }
 ```
 
 ---
 
+```
 main.py
 └── src/
   ├── model.py (SimpleCNN)
@@ -242,3 +242,5 @@ Paper:
   ├── \input{sradam_grouping_content.tex}
   ├── \input{experimental_figures.tex}
   └── \input{minimal-tables-content.tex}
+
+```
