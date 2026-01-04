@@ -88,10 +88,7 @@ if errorlevel 1 goto error
 python tools\make_minimal_tables.py
 if errorlevel 1 goto error
 
-python tools\make_testacc_plots_simplecnn.py
-if errorlevel 1 goto error
-
-python tools\make_loss_plots_simplecnn.py
+python tools\make_figures.py
 if errorlevel 1 goto error
 
 echo [OK] All tables and figures generated!

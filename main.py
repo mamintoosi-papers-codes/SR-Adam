@@ -39,6 +39,14 @@ from src.utils import (
     save_run_checkpoints,
 )
 
+# Import ablation and statistical utilities
+from tools.ablation_utils import (
+    should_skip_run,
+    get_batch_ablation_configs,
+    tag_ablation_metadata,
+)
+from tools.stat_testing import run_statistical_tests
+
 
 # ----------------------------------------------------------------------
 # Utilities
@@ -178,6 +186,12 @@ def main():
         help="Remove previous results for the selected optimizers (dataset/model/noise scope) before running"
     )
 
+    parser.add_argument(
+        "--batch_ablation",
+        action="store_true",
+        help="Enable batch-size ablation: test Adam and SR-Adam with batch_sizes=[256,512,2048]"
+    )
+
     args = parser.parse_args()
 
     device = setup_device()
@@ -195,7 +209,7 @@ def main():
         "Momentum",
         "Adam",
         "SR-Adam",
-        # "SR-Adam-All-Weights",
+        "SR-Adam-All-Weights",
     ]
 
     alias_map = {
@@ -203,7 +217,7 @@ def main():
         "momentum": "Momentum",
         "adam": "Adam",
         "sradam": "SR-Adam",
-        # "sradam_all": "SR-Adam-All-Weights",
+        "sradam_all": "SR-Adam-All-Weights",
     }
 
     optimizer_names = parse_optimizer_list(args.optimizers, all_optimizer_names, alias_map)
@@ -214,6 +228,13 @@ def main():
 
     all_results = {}      # optimizer -> list of run metrics
     summary_stats = {}    # optimizer -> mean/std statistics
+
+    # Determine batch-size configurations
+    if args.batch_ablation:
+        batch_ablation_configs = get_batch_ablation_configs(True, optimizer_names)
+        print(f"[Ablation] Batch-size study enabled for: {batch_ablation_configs}")
+    else:
+        batch_ablation_configs = get_batch_ablation_configs(False, optimizer_names)
 
     # Iterate dataset x noise x optimizer grid
     for dataset_name in dataset_list:
@@ -240,6 +261,7 @@ def main():
                             print(f"[Clean] Failed to remove {folder}: {e}")
 
             # Load data for this dataset/noise
+            # Use args.batch_size as default; will override in ablation loop if needed
             train_loader, test_loader, num_classes = get_data_loaders(
                 dataset_name=dataset_name,
                 batch_size=args.batch_size,
@@ -249,9 +271,19 @@ def main():
             # Prepare container for plotting epoch mean/std across optimizers
             results_per_optimizer = {}
 
-            for opt_name in optimizer_names:
+            # Iterate over ablation configurations (batch_size always set)
+            for opt_name, batch_size in batch_ablation_configs:
+                
+                # Reload data with correct batch size
+                if batch_size != args.batch_size:
+                    train_loader, test_loader, _ = get_data_loaders(
+                        dataset_name=dataset_name,
+                        batch_size=batch_size,
+                        noise_std=noise
+                    )
+
                 print("\n" + "=" * 80)
-                print(f"Optimizer: {opt_name}")
+                print(f"Optimizer: {opt_name} (batch_size: {batch_size})")
                 print("=" * 80)
 
                 all_results_for_opt = []
@@ -259,39 +291,64 @@ def main():
                 for run in range(args.num_runs):
                     seed = args.base_seed + run
                     print(f"\nRun {run + 1}/{args.num_runs} | seed = {seed}")
-                    set_seeds(seed)
 
-                    model = get_model(model_name, num_classes=num_classes).to(device)
-                    print(f"Model params: {count_parameters(model):,}")
-
-                    optimizer = create_optimizer(opt_name, model)
-                    criterion = nn.CrossEntropyLoss()
-
-                    metrics = train_model(
-                        model=model,
-                        train_loader=train_loader,
-                        test_loader=test_loader,
-                        optimizer=optimizer,
-                        criterion=criterion,
-                        num_epochs=args.num_epochs,
-                        device=device,
+                    # Check if run already exists; skip if so
+                    skip_training, loaded_metrics = should_skip_run(
+                        dataset_name, model_name, noise, opt_name, run + 1,
+                        args.num_epochs, args.clean_previous, batch_size=batch_size
                     )
 
+                    if skip_training and loaded_metrics:
+                        print(f"  [Reuse] Skipping training")
+                        metrics = loaded_metrics
+                    else:
+                        # Train normally
+                        set_seeds(seed)
+
+                        model = get_model(model_name, num_classes=num_classes).to(device)
+                        print(f"Model params: {count_parameters(model):,}")
+
+                        optimizer = create_optimizer(opt_name, model)
+                        criterion = nn.CrossEntropyLoss()
+
+                        metrics = train_model(
+                            model=model,
+                            train_loader=train_loader,
+                            test_loader=test_loader,
+                            optimizer=optimizer,
+                            criterion=criterion,
+                            num_epochs=args.num_epochs,
+                            device=device,
+                        )
+
                     metrics["seed"] = seed
+
+                    # Tag with ablation metadata (batch_size always set)
+                    metrics = tag_ablation_metadata(metrics, batch_size=batch_size)
+
                     all_results_for_opt.append(metrics)
 
                     # Save per-run CSV + meta
                     save_run_metrics(metrics, dataset_name, model_name, noise, opt_name, run + 1)
 
-                    # Save best and last model checkpoints for reproducible figures
-                    try:
-                        save_run_checkpoints(dataset_name, model_name, noise, opt_name, run + 1, metrics, base_dir='runs')
-                    except Exception as e:
-                        print(f"Checkpoint saving failed: {e}")
+                    # Save best and last model checkpoints (only if just trained)
+                    if not skip_training:
+                        try:
+                            save_run_checkpoints(dataset_name, model_name, noise, opt_name, run + 1, metrics, base_dir='runs')
+                        except Exception as e:
+                            print(f"Checkpoint saving failed: {e}")
 
                 # Aggregate runs for this optimizer/dataset/noise
                 try:
-                    summary_path, excel_path = aggregate_runs_and_save(dataset_name, model_name, noise, opt_name)
+                    # Run statistical tests if applicable
+                    stat_tests = None
+                    if opt_name in ["Adam", "SR-Adam", "SR-Adam-All-Weights"]:
+                        # Will be computed after all optimizers for this grid point
+                        stat_tests = None
+
+                    summary_path, excel_path = aggregate_runs_and_save(
+                        dataset_name, model_name, noise, opt_name, stat_tests=stat_tests
+                    )
                     print(f"Aggregated results saved: {summary_path}, {excel_path}")
                 except Exception as e:
                     print(f"Aggregation failed: {e}")
@@ -301,6 +358,9 @@ def main():
                 best_accs = [max(m['test_acc']) for m in all_results_for_opt]
 
                 summary_stats_key = f"{dataset_name}|noise_{noise}|{opt_name}"
+                if batch_size_override:
+                    summary_stats_key += f"|bs_{batch_size_override}"
+
                 summary_stats[summary_stats_key] = {
                     'final_mean': float(np.mean(final_accs)),
                     'final_std': float(np.std(final_accs)),
@@ -326,6 +386,24 @@ def main():
                     'final_mean': summary_stats[summary_stats_key]['final_mean'],
                     'final_std': summary_stats[summary_stats_key]['final_std']
                 })
+
+            # After all optimizers for this dataset+noise: run statistical tests
+            # and re-save aggregates with p-values
+            try:
+                stat_test_results = run_statistical_tests(results_per_optimizer, list(results_per_optimizer.keys()))
+                
+                # Re-aggregate with test results
+                for opt_name in results_per_optimizer.keys():
+                    # Filter tests for this optimizer (as comparator)
+                    relevant_tests = [t for t in stat_test_results if opt_name in [t['optimizer_1'], t['optimizer_2']]]
+                    if relevant_tests:
+                        summary_path, _ = aggregate_runs_and_save(
+                            dataset_name, model_name, noise, opt_name, 
+                            stat_tests=relevant_tests
+                        )
+                        print(f"Updated {opt_name} aggregates with statistical test results")
+            except Exception as e:
+                print(f"Statistical testing failed: {e}")
 
             # After all optimizers for this dataset+noise: plot epoch mean ± std
             try:

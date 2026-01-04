@@ -62,14 +62,17 @@ for dirpath, dirnames, filenames in os.walk(ROOT):
         continue
     rel = os.path.relpath(dirpath, ROOT)
     parts = rel.split(os.sep)
-    if len(parts) < 4:
+    # Expected: dataset/model/noise_X/optimizer/batch_size_Y
+    if len(parts) < 5:
         continue
-    dataset, model, noise_dir, optimizer = parts[:4]
+    dataset, model, noise_dir, optimizer, batch_dir = parts[:5]
     if not noise_dir.startswith('noise_'):
         continue
+    if not batch_dir.startswith('batch_size_'):
+        continue
     aggregate_runs_and_save(dirpath)
-    updated.append((dataset, model, noise_dir, optimizer))
-    print(f'Regenerated aggregates for {dataset}/{model}/{noise_dir}/{optimizer}')
+    updated.append((dataset, model, noise_dir, optimizer, batch_dir))
+    print(f'Regenerated aggregates for {dataset}/{model}/{noise_dir}/{optimizer}/{batch_dir}')
 
 if not updated:
     print('No run_* CSV folders found; nothing regenerated')

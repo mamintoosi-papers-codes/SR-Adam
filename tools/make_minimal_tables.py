@@ -13,9 +13,9 @@ DATASETS = ["CIFAR10", "CIFAR100"]
 MODEL = "simplecnn"
 
 
-def collect_runs(dataset, noise, optimizer):
-    folder = os.path.join(RESULTS_ROOT, dataset, MODEL, f"noise_{noise}", optimizer)
-    files = sorted(glob.glob(os.path.join(folder, 'run_*.csv')))
+def collect_runs(dataset, noise, optimizer, batch_size=512):
+    folder = os.path.join(RESULTS_ROOT, dataset, MODEL, f"noise_{noise}", optimizer, f"batch_size_{batch_size}")
+    files = sorted(glob.glob(os.path.join(folder, 'run_*_metrics.csv')))
     return [pd.read_csv(f) for f in files]
 
 
@@ -43,13 +43,13 @@ def format_cell(mean, std, bold=False):
     return f"\\textbf{{{cell}}}" if bold else cell
 
 
-def gather_values(metric_key, higher_is_better):
+def gather_values(metric_key, higher_is_better, batch_size=512):
     # Build a dict: method -> {(dataset, noise): (mean,std)} and best markers
     values = {m: {} for m in METHOD_ORDER}
     for method in METHOD_ORDER:
         for dataset in DATASETS:
             for noise in NOISES:
-                runs = collect_runs(dataset, noise, method)
+                runs = collect_runs(dataset, noise, method, batch_size)
                 if not runs:
                     values[method][(dataset, noise)] = (float('nan'), float('nan'))
                     continue
@@ -104,20 +104,22 @@ def main():
     parts = []
     body_parts = []
 
+    batch_size = 512  # Default batch size
+
     # Best Accuracy (higher better)
-    vals, flags = gather_values('best_acc', True)
+    vals, flags = gather_values('best_acc', True, batch_size)
     body_parts.append(build_table_tex('Best test accuracy (mean $\\pm$ std) over epochs; higher is better.', vals, flags, label='tab:method_best_acc'))
 
     # Final Accuracy (higher better)
-    vals, flags = gather_values('final_acc', True)
+    vals, flags = gather_values('final_acc', True, batch_size)
     body_parts.append(build_table_tex('Final test accuracy (mean $\\pm$ std) at last epoch; higher is better.', vals, flags, label='tab:method_final_acc'))
 
     # Best Loss (lower better)
-    vals, flags = gather_values('best_loss', False)
+    vals, flags = gather_values('best_loss', False, batch_size)
     body_parts.append(build_table_tex('Best test loss (mean $\\pm$ std) over epochs; lower is better.', vals, flags, label='tab:method_best_loss'))
 
     # Final Loss (lower better)
-    vals, flags = gather_values('final_loss', False)
+    vals, flags = gather_values('final_loss', False, batch_size)
     body_parts.append(build_table_tex('Final test loss (mean $\\pm$ std) at last epoch; lower is better.', vals, flags, label='tab:method_final_loss'))
     # Write full standalone doc
     parts.append("\\documentclass{article}")
@@ -126,13 +128,13 @@ def main():
     parts.append("\\begin{document}")
     parts.append("\n".join(body_parts))
     parts.append("\\end{document}")
-    out_path = os.path.join(OUT_DIR, 'minimal-tables.tex')
+    out_path = os.path.join(OUT_DIR, f'minimal-tables_bs{batch_size}.tex')
     with open(out_path, 'w', encoding='utf-8') as f:
         f.write("\n".join(parts))
     print(f"Wrote {out_path}")
 
     # Write body-only content for \input into the main paper
-    body_out_path = os.path.join(OUT_DIR, 'minimal-tables-content.tex')
+    body_out_path = os.path.join(OUT_DIR, f'minimal-tables-content_bs{batch_size}.tex')
     with open(body_out_path, 'w', encoding='utf-8') as f:
         f.write("\n".join(body_parts))
     print(f"Wrote {body_out_path}")

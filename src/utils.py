@@ -29,15 +29,22 @@ def save_multirun_summary(summary_stats, results_dir):
 def save_run_metrics(metrics, dataset, model, noise, optimizer_name, run_id, base_dir='results'):
     """Save a single run's metrics as CSV and metadata JSON.
 
-    Path: results/{dataset}/{model}/noise_{noise}/{optimizer_name}/run_{run_id}.csv
+    Path: results/{dataset}/{model}/noise_{noise}/{optimizer_name}/batch_size_{bs}/run_{run_id}_metrics.csv
+    
+    Always saves under batch_size_{bs}/ subdirectory.
+    If batch_size not in metrics, uses default 512.
     """
-    folder = os.path.join(base_dir, dataset, model, f"noise_{noise}", optimizer_name)
+    # Determine batch_size (use default if not specified)
+    batch_size = metrics.get('batch_size', 512)
+    
+    # Always use new format with batch_size subdirectory
+    folder = os.path.join(base_dir, dataset, model, f"noise_{noise}", optimizer_name, f"batch_size_{batch_size}")
     os.makedirs(folder, exist_ok=True)
 
-    csv_path = os.path.join(folder, f"run_{run_id}.csv")
+    csv_path = os.path.join(folder, f"run_{run_id}_metrics.csv")
     # Avoid overwriting existing run files
     if os.path.exists(csv_path):
-        csv_path = os.path.join(folder, f"run_{run_id}_{int(time.time())}.csv")
+        csv_path = os.path.join(folder, f"run_{run_id}_metrics_{int(time.time())}.csv")
     df = pd.DataFrame({
         'Epoch': list(range(1, len(metrics['test_acc']) + 1)),
         'Train Loss': metrics['train_loss'],
@@ -57,6 +64,13 @@ def save_run_metrics(metrics, dataset, model, noise, optimizer_name, run_id, bas
         'final_test_acc': float(metrics['test_acc'][-1]),
         'best_test_acc': float(max(metrics['test_acc']))
     }
+    
+    # Include ablation metadata if present
+    if 'ablation' in metrics:
+        meta['ablation'] = metrics['ablation']
+    if 'batch_size' in metrics:
+        meta['batch_size'] = metrics['batch_size']
+    
     with open(os.path.join(folder, f"run_{run_id}_meta.json"), 'w') as f:
         json.dump(meta, f, indent=2)
 
@@ -72,10 +86,17 @@ def save_run_checkpoints(dataset, model, noise, optimizer_name, run_id, metrics,
     """Save best and last model checkpoints for a single run.
 
     Paths:
-      runs/{dataset}/{model}/noise_{noise}/{optimizer_name}/run_{run_id}_best.pt
-      runs/{dataset}/{model}/noise_{noise}/{optimizer_name}/run_{run_id}_last.pt
+      runs/{dataset}/{model}/noise_{noise}/{optimizer_name}/batch_size_{bs}/run_{run_id}_best.pt
+      runs/{dataset}/{model}/noise_{noise}/{optimizer_name}/batch_size_{bs}/run_{run_id}_final.pt
+      
+    Always saves under batch_size_{bs}/ subdirectory.
+    If batch_size not in metrics, uses default 512.
     """
-    folder = os.path.join(base_dir, dataset, model, f"noise_{noise}", optimizer_name)
+    # Determine batch_size (use default if not specified)
+    batch_size = metrics.get('batch_size', 512)
+    
+    # Always use new format with batch_size subdirectory
+    folder = os.path.join(base_dir, dataset, model, f"noise_{noise}", optimizer_name, f"batch_size_{batch_size}")
     os.makedirs(folder, exist_ok=True)
 
     best_sd = metrics.get('best_state_dict')
@@ -129,14 +150,22 @@ def save_run_checkpoints(dataset, model, noise, optimizer_name, run_id, metrics,
     return best_path, last_path
 
 
-def aggregate_runs_and_save(dataset, model, noise, optimizer_name, base_dir='results'):
+def aggregate_runs_and_save(dataset, model, noise, optimizer_name, base_dir='results', stat_tests=None, batch_size=512):
     """Aggregate all run CSVs for an optimizer and save summary JSON and Excel.
 
-    Expects files: results/{dataset}/{model}/noise_{noise}/{optimizer_name}/run_{k}.csv
+    Path: results/{dataset}/{model}/noise_{noise}/{optimizer_name}/batch_size_{bs}/run_*_metrics.csv
+    
+    Args:
+        stat_tests: (optional) list of statistical test results to include in summary
+        batch_size: batch size for this optimizer (default: 512)
     """
-    folder = os.path.join(base_dir, dataset, model, f"noise_{noise}", optimizer_name)
-    pattern = os.path.join(folder, "run_*.csv")
+    # Always use new format with batch_size subdirectory
+    folder = os.path.join(base_dir, dataset, model, f"noise_{noise}", optimizer_name, f"batch_size_{batch_size}")
+    
+    # Look for run files
+    pattern = os.path.join(folder, "run_*_metrics.csv")
     files = sorted(glob.glob(pattern))
+    
     if not files:
         raise FileNotFoundError(f"No run CSV files found in {folder}")
 
@@ -148,14 +177,22 @@ def aggregate_runs_and_save(dataset, model, noise, optimizer_name, base_dir='res
 
     summary = {
         'num_runs': len(runs),
+        'batch_size': batch_size,
         'final_test_acc_mean': float(np.mean(final_accs)),
         'final_test_acc_std': float(np.std(final_accs, ddof=0)),
         'best_test_acc_mean': float(np.mean(best_accs)),
         'best_test_acc_std': float(np.std(best_accs, ddof=0)),
     }
+    
+    # Include statistical test results if provided
+    if stat_tests:
+        summary['statistical_tests'] = stat_tests
+
+    # Save aggregates in the batch_size folder
+    save_folder = folder
 
     # Save summary JSON
-    summary_path = os.path.join(folder, 'aggregated_summary.json')
+    summary_path = os.path.join(save_folder, 'aggregated_summary.json')
     with open(summary_path, 'w') as f:
         json.dump(summary, f, indent=2)
 
@@ -171,10 +208,10 @@ def aggregate_runs_and_save(dataset, model, noise, optimizer_name, base_dir='res
     mean = acc_mat.mean(axis=0)
     std = acc_mat.std(axis=0)
     df_epoch = pd.DataFrame({'Epoch': epoch_idx, 'Test Acc Mean': mean, 'Test Acc Std': std})
-    df_epoch.to_csv(os.path.join(folder, 'aggregated_epoch_stats.csv'), index=False)
+    df_epoch.to_csv(os.path.join(save_folder, 'aggregated_epoch_stats.csv'), index=False)
 
     # Save Excel with per-run sheets + aggregate
-    excel_path = os.path.join(folder, 'runs_and_aggregate.xlsx')
+    excel_path = os.path.join(save_folder, 'runs_and_aggregate.xlsx')
     with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
         for idx, r in enumerate(runs):
             sheet = f'run_{idx+1}'

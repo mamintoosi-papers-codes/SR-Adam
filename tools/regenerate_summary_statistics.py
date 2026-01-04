@@ -37,34 +37,45 @@ for dataset in os.listdir(RESULTS_ROOT):
                 if not os.path.isdir(opt_path):
                     continue
 
-                run_files = sorted(glob.glob(os.path.join(opt_path, 'run_*.csv')))
-                if not run_files:
-                    continue
+                # Check for batch_size subdirectories
+                for batch_dir in os.listdir(opt_path):
+                    batch_path = os.path.join(opt_path, batch_dir)
+                    if not os.path.isdir(batch_path):
+                        continue
+                    if not batch_dir.startswith('batch_size_'):
+                        continue
 
-                runs = [pd.read_csv(f) for f in run_files]
-                final_accs = [float(r['Test Acc'].iloc[-1]) for r in runs]
-                best_accs = [float(r['Test Acc'].max()) for r in runs]
+                    run_files = sorted(glob.glob(os.path.join(batch_path, 'run_*_metrics.csv')))
+                    if not run_files:
+                        continue
 
-                stats_key = f"{dataset}|noise_{noise_value}|{optimizer}"
-                summary_stats[stats_key] = {
-                    'final_mean': float(np.mean(final_accs)),
-                    'final_std': float(np.std(final_accs, ddof=0)),
-                    'best_mean': float(np.mean(best_accs)),
-                    'best_std': float(np.std(best_accs, ddof=0)),
-                    'num_runs': len(runs),
-                }
+                    runs = [pd.read_csv(f) for f in run_files]
+                    final_accs = [float(r['Test Acc'].iloc[-1]) for r in runs]
+                    best_accs = [float(r['Test Acc'].max()) for r in runs]
 
-                if ds_model_key not in summary_stats:
-                    summary_stats[ds_model_key] = {}
-                if 'noise_table' not in summary_stats[ds_model_key]:
-                    summary_stats[ds_model_key]['noise_table'] = {}
-                if optimizer not in summary_stats[ds_model_key]['noise_table']:
-                    summary_stats[ds_model_key]['noise_table'][optimizer] = []
-                summary_stats[ds_model_key]['noise_table'][optimizer].append({
-                    'noise': noise_value,
-                    'final_mean': summary_stats[stats_key]['final_mean'],
-                    'final_std': summary_stats[stats_key]['final_std'],
-                })
+                    batch_size = batch_dir.replace('batch_size_', '')
+                    stats_key = f"{dataset}|noise_{noise_value}|{optimizer}|batch_{batch_size}"
+                    summary_stats[stats_key] = {
+                        'final_mean': float(np.mean(final_accs)),
+                        'final_std': float(np.std(final_accs, ddof=0)),
+                        'best_mean': float(np.mean(best_accs)),
+                        'best_std': float(np.std(best_accs, ddof=0)),
+                        'num_runs': len(runs),
+                        'batch_size': batch_size,
+                    }
+
+                    if ds_model_key not in summary_stats:
+                        summary_stats[ds_model_key] = {}
+                    if 'noise_table' not in summary_stats[ds_model_key]:
+                        summary_stats[ds_model_key]['noise_table'] = {}
+                    opt_batch_key = f"{optimizer}_batch{batch_size}"
+                    if opt_batch_key not in summary_stats[ds_model_key]['noise_table']:
+                        summary_stats[ds_model_key]['noise_table'][opt_batch_key] = []
+                    summary_stats[ds_model_key]['noise_table'][opt_batch_key].append({
+                        'noise': noise_value,
+                        'final_mean': summary_stats[stats_key]['final_mean'],
+                        'final_std': summary_stats[stats_key]['final_std'],
+                    })
 
 # Save summary_statistics.csv in the same format used by save_multirun_summary
 summary_df = pd.DataFrame.from_dict(summary_stats, orient='index')

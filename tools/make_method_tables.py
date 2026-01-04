@@ -13,9 +13,9 @@ DATASETS = ["CIFAR10", "CIFAR100"]
 MODEL = "simplecnn"
 
 
-def collect_runs(dataset, noise, optimizer):
-    folder = os.path.join(RESULTS_ROOT, dataset, MODEL, f"noise_{noise}", optimizer)
-    files = sorted(glob.glob(os.path.join(folder, 'run_*.csv')))
+def collect_runs(dataset, noise, optimizer, batch_size=512):
+    folder = os.path.join(RESULTS_ROOT, dataset, MODEL, f"noise_{noise}", optimizer, f"batch_size_{batch_size}")
+    files = sorted(glob.glob(os.path.join(folder, 'run_*_metrics.csv')))
     return [pd.read_csv(f) for f in files]
 
 
@@ -42,7 +42,7 @@ def format_cell(mean, std, bold=False):
     return f"\\textbf{{{cell}}}" if bold else cell
 
 
-def build_table(metric_key, metric_label, higher_is_better, out_tex):
+def build_table(metric_key, metric_label, higher_is_better, out_tex, batch_size=512):
     # columns: CIFAR10 (0.0,0.05,0.1) | CIFAR100 (0.0,0.05,0.1)
     lines = []
     lines.append("\\documentclass[varwidth=\\maxdimen]{standalone}")
@@ -60,7 +60,7 @@ def build_table(metric_key, metric_label, higher_is_better, out_tex):
         # Compute per dataset/noise
         for dataset in DATASETS:
             for noise in NOISES:
-                runs = collect_runs(dataset, noise, method)
+                runs = collect_runs(dataset, noise, method, batch_size)
                 if not runs:
                     values[(dataset, noise)] = (float('nan'), float('nan'))
                     continue
@@ -84,18 +84,20 @@ def build_table(metric_key, metric_label, higher_is_better, out_tex):
     lines.append("\\end{tabular}")
     lines.append(f"\\end{{document}}")
 
-    with open(os.path.join(OUT_DIR, out_tex), 'w', encoding='utf-8') as f:
+    out_filename = out_tex.replace('.tex', f'_bs{batch_size}.tex')
+    with open(os.path.join(OUT_DIR, out_filename), 'w', encoding='utf-8') as f:
         f.write("\n".join(lines))
-    print(f"Wrote {out_tex}")
+    print(f"Wrote {out_filename}")
 
 
 def main():
+    batch_size = 512  # Default batch size
     # Two tables: best accuracy (higher better) and best loss (lower better)
-    build_table('best_acc', 'Best Accuracy', True, 'methods_best_acc.tex')
-    build_table('best_loss', 'Best Loss', False, 'methods_best_loss.tex')
+    build_table('best_acc', 'Best Accuracy', True, 'methods_best_acc.tex', batch_size)
+    build_table('best_loss', 'Best Loss', False, 'methods_best_loss.tex', batch_size)
     # Optionally, also final
-    build_table('final_acc', 'Final Accuracy', True, 'methods_final_acc.tex')
-    build_table('final_loss', 'Final Loss', False, 'methods_final_loss.tex')
+    build_table('final_acc', 'Final Accuracy', True, 'methods_final_acc.tex', batch_size)
+    build_table('final_loss', 'Final Loss', False, 'methods_final_loss.tex', batch_size)
 
 
 if __name__ == '__main__':

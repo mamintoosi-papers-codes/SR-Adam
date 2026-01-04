@@ -26,7 +26,12 @@ def load_checkpoint(checkpoint_path, model, device='cpu'):
 
 
 def get_best_run(optimizer_name, dataset='CIFAR10', model_name='simplecnn', noise=0.05, runs_root='runs'):
-    """Find the run with highest best accuracy for given optimizer."""
+    """Find the run with highest best accuracy for given optimizer.
+    
+    Supports both old and new formats:
+    - Old: runs/{dataset}/{model}/noise_{noise}/{optimizer}/run_*_best.pt
+    - New: runs/{dataset}/{model}/noise_{noise}/{optimizer}/batch_size_*/run_*_best.pt
+    """
     folder = Path(runs_root) / dataset / model_name / f'noise_{noise}' / optimizer_name
     
     if not folder.exists():
@@ -35,11 +40,16 @@ def get_best_run(optimizer_name, dataset='CIFAR10', model_name='simplecnn', nois
     if not folder.exists():
         raise FileNotFoundError(f"No results found for {optimizer_name} in {folder}")
     
-    # Find all best checkpoints
-    best_files = list(folder.glob('run_*_best.pt'))
+    # Find all best checkpoints (supports both old and new formats)
+    # New format: batch_size_*/run_*_best.pt
+    best_files = list(folder.glob('batch_size_*/run_*_best.pt'))
+    
+    # Old format: run_*_best.pt (directly in optimizer folder)
+    if not best_files:
+        best_files = list(folder.glob('run_*_best.pt'))
     
     if not best_files:
-        raise FileNotFoundError(f"No best checkpoints found in {folder}")
+        raise FileNotFoundError(f"No best checkpoints found in {folder} (tried both batch_size_*/ and direct formats)")
     
     # Load all and find highest accuracy
     best_acc = -1

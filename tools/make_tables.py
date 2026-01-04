@@ -3,10 +3,10 @@ import pandas as pd
 
 RESULTS_ROOT = os.path.join(os.path.dirname(__file__), "results")
 SUMMARY_CSV = os.path.join(RESULTS_ROOT, "summary_statistics.csv")
-TABLES_TEX = os.path.join(os.path.dirname(__file__), "tables.tex")
 
 NOISE_LEVELS = ["0.0", "0.05", "0.1"]
 OPTIMIZERS = ["Adam", "SR-Adam"]
+DEFAULT_BATCH_SIZE = 512  # Default batch size for summary statistics
 
 
 def _load_summary():
@@ -58,6 +58,7 @@ def build_table(df, dataset, mean_col, std_col, caption, label):
 
 
 def main():
+    batch_size = DEFAULT_BATCH_SIZE
     df = _load_summary()
 
     table1 = []
@@ -94,9 +95,10 @@ def main():
         *table2,
     ]
 
-    with open(TABLES_TEX, "w", encoding="utf-8") as f:
+    tables_tex = os.path.join(os.path.dirname(__file__), f"tables_bs{batch_size}.tex")
+    with open(tables_tex, "w", encoding="utf-8") as f:
         f.write("\n".join(content))
-    print(f"Wrote LaTeX tables to {TABLES_TEX}")
+    print(f"Wrote LaTeX tables to {tables_tex}")
 
 
 if __name__ == "__main__":
