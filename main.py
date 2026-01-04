@@ -358,8 +358,8 @@ def main():
                 best_accs = [max(m['test_acc']) for m in all_results_for_opt]
 
                 summary_stats_key = f"{dataset_name}|noise_{noise}|{opt_name}"
-                if batch_size_override:
-                    summary_stats_key += f"|bs_{batch_size_override}"
+                if batch_size:
+                    summary_stats_key += f"|bs_{batch_size}"
 
                 summary_stats[summary_stats_key] = {
                     'final_mean': float(np.mean(final_accs)),
