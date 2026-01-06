@@ -1,7 +1,0 @@
-{
-  "num_runs": 5,
-  "final_test_acc_mean": 34.632,
-  "final_test_acc_std": 0.7423408920435406,
-  "best_test_acc_mean": 34.632,
-  "best_test_acc_std": 0.7423408920435406
-}

@@ -2,22 +2,7 @@
   "dataset": "CIFAR100",
   "noise": 0.05,
   "random_seed": 2026,
-  "aggregated_summary": {
-    "Adam": {
-      "num_runs": 5,
-      "final_test_acc_mean": 40.19199999999999,
-      "final_test_acc_std": 0.6734018116993743,
-      "best_test_acc_mean": 40.245999999999995,
-      "best_test_acc_std": 0.6709918032286252
-    },
-    "SR-Adam": {
-      "num_runs": 5,
-      "final_test_acc_mean": 41.498,
-      "final_test_acc_std": 1.345537067493869,
-      "best_test_acc_mean": 41.5,
-      "best_test_acc_std": 1.344581719346206
-    }
-  },
+  "aggregated_summary": {},
   "checkpoint_best_selected": {
     "Adam": 41.13,
     "SR-Adam": 43.29

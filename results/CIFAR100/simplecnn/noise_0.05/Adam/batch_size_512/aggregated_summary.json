@@ -1,0 +1,40 @@
+{
+  "num_runs": 5,
+  "batch_size": 512,
+  "final_test_acc_mean": 40.19199999999999,
+  "final_test_acc_std": 0.6023088908525256,
+  "best_test_acc_mean": 40.245999999999995,
+  "best_test_acc_std": 0.6001533137457474,
+  "statistical_tests": [
+    {
+      "comparison": "Adam vs SR-Adam",
+      "optimizer_1": "Adam",
+      "optimizer_2": "SR-Adam",
+      "n_runs": 5,
+      "mean_1": 40.19199999999999,
+      "std_1": 0.6023088908525256,
+      "mean_2": 41.498,
+      "std_2": 1.2034849396648055,
+      "mean_diff": -1.3059999999999987,
+      "t_test_statistic": -2.4607106310826325,
+      "t_test_pvalue": 0.06963821456505427,
+      "wilcoxon_statistic": 0.0,
+      "wilcoxon_pvalue": 0.0625
+    },
+    {
+      "comparison": "Adam vs SR-Adam-All-Weights",
+      "optimizer_1": "Adam",
+      "optimizer_2": "SR-Adam-All-Weights",
+      "n_runs": 5,
+      "mean_1": 40.19199999999999,
+      "std_1": 0.6023088908525256,
+      "mean_2": 33.622,
+      "std_2": 0.6649932330482776,
+      "mean_diff": 6.57,
+      "t_test_statistic": 18.37016766292675,
+      "t_test_pvalue": 5.16615615172014e-05,
+      "wilcoxon_statistic": 0.0,
+      "wilcoxon_pvalue": 0.0625
+    }
+  ]
+}

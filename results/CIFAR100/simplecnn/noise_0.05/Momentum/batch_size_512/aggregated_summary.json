@@ -1,0 +1,8 @@
+{
+  "num_runs": 5,
+  "batch_size": 512,
+  "final_test_acc_mean": 34.632,
+  "final_test_acc_std": 0.6639698788348758,
+  "best_test_acc_mean": 34.632,
+  "best_test_acc_std": 0.6639698788348758
+}

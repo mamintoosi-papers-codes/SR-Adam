@@ -1,0 +1,25 @@
+{
+  "num_runs": 5,
+  "batch_size": 512,
+  "final_test_acc_mean": 34.682,
+  "final_test_acc_std": 0.6201419192410719,
+  "best_test_acc_mean": 34.988,
+  "best_test_acc_std": 0.47671375058833976,
+  "statistical_tests": [
+    {
+      "comparison": "Adam vs SR-Adam-All-Weights",
+      "optimizer_1": "Adam",
+      "optimizer_2": "SR-Adam-All-Weights",
+      "n_runs": 5,
+      "mean_1": 40.824,
+      "std_1": 0.5605568659823916,
+      "mean_2": 34.682,
+      "std_2": 0.6201419192410719,
+      "mean_diff": 6.142,
+      "t_test_statistic": 31.924698305811933,
+      "t_test_pvalue": 5.738634696562933e-06,
+      "wilcoxon_statistic": 0.0,
+      "wilcoxon_pvalue": 0.0625
+    }
+  ]
+}
