@@ -1,84 +1,120 @@
-import os
+import argparse
 import glob
 import json
-import numpy as np
+import os
 import pandas as pd
+import numpy as np
+from pathlib import Path
 
-RESULTS_ROOT = os.path.join(os.path.dirname(__file__), 'results')
+def parse_list_arg(raw, value_type=str):
+    """Parse pipe/semicolon-separated list arguments."""
+    if raw.upper() == "ALL":
+        return None
+    
+    for sep in ["|", ";", ","]:
+        if sep in raw:
+            tokens = [t.strip() for t in raw.split(sep) if t.strip()]
+            break
+    else:
+        tokens = [raw.strip()]
+    
+    if value_type == float:
+        return [float(t) for t in tokens]
+    elif value_type == int:
+        return [int(t) for t in tokens]
+    else:
+        return tokens
 
-if not os.path.isdir(RESULTS_ROOT):
-    raise SystemExit(f'results folder not found: {RESULTS_ROOT}')
-
-summary_stats = {}
-
-for dataset in os.listdir(RESULTS_ROOT):
-    dataset_path = os.path.join(RESULTS_ROOT, dataset)
-    if not os.path.isdir(dataset_path):
-        continue
-
-    for model in os.listdir(dataset_path):
-        model_path = os.path.join(dataset_path, model)
-        if not os.path.isdir(model_path):
-            continue
-
-        ds_model_key = f'{dataset}|{model}'
-
-        for noise_dir in os.listdir(model_path):
-            if not noise_dir.startswith('noise_'):
+def main():
+    parser = argparse.ArgumentParser(
+        description="Regenerate summary statistics CSV with optional filters"
+    )
+    parser.add_argument("--dataset", type=str, default="ALL")
+    parser.add_argument("--noise", type=str, default="ALL")
+    parser.add_argument("--batch_size", type=str, default="ALL")
+    parser.add_argument("--optimizers", type=str, default="ALL")
+    parser.add_argument("--model", type=str, default="simplecnn")
+    parser.add_argument("--output", type=str, default="results/summary_statistics.csv")
+    
+    args = parser.parse_args()
+    
+    datasets = parse_list_arg(args.dataset) or ["CIFAR10", "CIFAR100"]
+    noise_levels = parse_list_arg(args.noise, float) or [0.0, 0.05, 0.1]
+    batch_sizes = parse_list_arg(args.batch_size, int)
+    optimizers = parse_list_arg(args.optimizers)
+    
+    print(f"\n{'='*80}")
+    print("Regenerating Summary Statistics")
+    print(f"{'='*80}")
+    print(f"Datasets:    {datasets}")
+    print(f"Noise:       {noise_levels}")
+    print(f"Batch sizes: {batch_sizes if batch_sizes else 'ALL'}")
+    print(f"Optimizers:  {optimizers if optimizers else 'ALL'}")
+    print(f"{'='*80}\n")
+    
+    rows = []
+    
+    for dataset in datasets:
+        for noise in noise_levels:
+            results_dir = Path('results') / dataset / args.model / f'noise_{noise}'
+            
+            if not results_dir.exists():
                 continue
-            noise_path = os.path.join(model_path, noise_dir)
-            if not os.path.isdir(noise_path):
-                continue
-
-            noise_value = noise_dir.replace('noise_', '')
-
-            for optimizer in os.listdir(noise_path):
-                opt_path = os.path.join(noise_path, optimizer)
-                if not os.path.isdir(opt_path):
+            
+            for opt_dir in results_dir.iterdir():
+                if not opt_dir.is_dir():
                     continue
+                
+                opt_name = opt_dir.name
+                
+                if optimizers and opt_name not in optimizers:
+                    continue
+                
+                summary_file = opt_dir / 'aggregated_summary.json'
+                if not summary_file.exists():
+                    continue
+                
+                # Check batch_size filter
+                run_files = list(opt_dir.glob('run_*.csv'))
+                if run_files and batch_sizes:
+                    df = pd.read_csv(run_files[0])
+                    if 'batch_size' in df.columns:
+                        run_bs = int(df['batch_size'].iloc[0])
+                        if run_bs not in batch_sizes:
+                            continue
+                        batch_size = run_bs
+                    else:
+                        batch_size = None
+                else:
+                    batch_size = None
+                
+                with open(summary_file) as f:
+                    summary = json.load(f)
+                
+                row = {
+                    'dataset': dataset,
+                    'model': args.model,
+                    'noise': noise,
+                    'optimizer': opt_name,
+                    'batch_size': batch_size,
+                    'final_acc_mean': summary['final_test_acc_mean'],
+                    'final_acc_std': summary['final_test_acc_std'],
+                    'best_acc_mean': summary['best_test_acc_mean'],
+                    'best_acc_std': summary['best_test_acc_std'],
+                    'num_runs': summary['num_runs']
+                }
+                rows.append(row)
+    
+    if rows:
+        df = pd.DataFrame(rows)
+        df = df.sort_values(['dataset', 'noise', 'batch_size', 'optimizer'])
+        
+        os.makedirs(os.path.dirname(args.output), exist_ok=True)
+        df.to_csv(args.output, index=False)
+        print(f"\n✓ Saved: {args.output}")
+        print(f"  {len(df)} rows\n")
+    else:
+        print("\n[WARNING] No matching results found\n")
 
-                # Check for batch_size subdirectories
-                for batch_dir in os.listdir(opt_path):
-                    batch_path = os.path.join(opt_path, batch_dir)
-                    if not os.path.isdir(batch_path):
-                        continue
-                    if not batch_dir.startswith('batch_size_'):
-                        continue
-
-                    run_files = sorted(glob.glob(os.path.join(batch_path, 'run_*_metrics.csv')))
-                    if not run_files:
-                        continue
-
-                    runs = [pd.read_csv(f) for f in run_files]
-                    final_accs = [float(r['Test Acc'].iloc[-1]) for r in runs]
-                    best_accs = [float(r['Test Acc'].max()) for r in runs]
-
-                    batch_size = batch_dir.replace('batch_size_', '')
-                    stats_key = f"{dataset}|noise_{noise_value}|{optimizer}|batch_{batch_size}"
-                    summary_stats[stats_key] = {
-                        'final_mean': float(np.mean(final_accs)),
-                        'final_std': float(np.std(final_accs, ddof=0)),
-                        'best_mean': float(np.mean(best_accs)),
-                        'best_std': float(np.std(best_accs, ddof=0)),
-                        'num_runs': len(runs),
-                        'batch_size': batch_size,
-                    }
-
-                    if ds_model_key not in summary_stats:
-                        summary_stats[ds_model_key] = {}
-                    if 'noise_table' not in summary_stats[ds_model_key]:
-                        summary_stats[ds_model_key]['noise_table'] = {}
-                    opt_batch_key = f"{optimizer}_batch{batch_size}"
-                    if opt_batch_key not in summary_stats[ds_model_key]['noise_table']:
-                        summary_stats[ds_model_key]['noise_table'][opt_batch_key] = []
-                    summary_stats[ds_model_key]['noise_table'][opt_batch_key].append({
-                        'noise': noise_value,
-                        'final_mean': summary_stats[stats_key]['final_mean'],
-                        'final_std': summary_stats[stats_key]['final_std'],
-                    })
-
-# Save summary_statistics.csv in the same format used by save_multirun_summary
-summary_df = pd.DataFrame.from_dict(summary_stats, orient='index')
-summary_csv_path = os.path.join(RESULTS_ROOT, 'summary_statistics.csv')
-summary_df.to_csv(summary_csv_path)
-print(f'Regenerated summary statistics at {summary_csv_path}')
+if __name__ == "__main__":
+    main()

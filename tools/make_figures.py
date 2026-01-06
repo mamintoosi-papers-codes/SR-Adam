@@ -3,6 +3,7 @@ import glob
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import argparse
 
 RESULTS_ROOT = os.path.join(os.path.dirname(__file__), "results")
 FIG_DIR = os.path.join(os.path.dirname(__file__), "..", "paper")
@@ -179,7 +180,11 @@ def figure_acc_curves(dataset, model="simplecnn", batch_size=512):
 
 
 def main():
-    batch_size = 512  # Default batch size
+    parser = argparse.ArgumentParser(description="Generate figures for CIFAR results")
+    parser.add_argument("--batch_size", type=int, default=512, help="Batch size for loading results")
+    args = parser.parse_args()
+
+    batch_size = args.batch_size
     
     # Original figures
     epoch_fig = figure_epoch_curve(batch_size)

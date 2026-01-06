@@ -244,3 +244,19 @@ Paper:
   └── \input{minimal-tables-content.tex}
 
 ```
+
+---
+
+## Advanced Usage: Filtering Results
+
+All result processing scripts support optional filters for flexible analysis:
+
+### Filter Options
+
+```bash
+# Available filters for all tools:
+--dataset       CIFAR10, CIFAR100, or ALL (default: ALL)
+--noise         Specific noise level(s) or ALL (default: ALL)
+--batch_size    Specific batch size(s) or ALL (default: ALL for aggregation, 512 for tables)
+--optimizers    Specific optimizer(s) or ALL (default: ALL)
+```

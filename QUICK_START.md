@@ -108,8 +108,7 @@ paper/
 
 ## Typical Runtime
 
-- **Full pipeline (experiments + tables + paper):** 2-4 hours (GPU-dependent)
-- **Experiments only:** 2-3 hours
+- **Full pipeline (experiments + tables + paper):** 24 hours (GPU-dependent)
 - **Regenerate tables/figures:** 5-10 minutes
 - **Paper compilation:** 30 seconds
 
@@ -199,4 +198,34 @@ If you publish results using this pipeline, cite:
   year={2024},
   howpublished={\url{https://github.com/mamintoosi-papers-codes/SR-Adam}}
 }
+```
+
+## Advanced: Filtering and Custom Analysis
+
+### Running Experiments with Multiple Parameters
+
+You can now specify multiple values for `--batch_size`, `--noise`, and `--optimizers`:
+
+```bash
+# Multiple batch sizes (ablation study)
+python main.py \
+  --dataset CIFAR10 \
+  --noise 0.05 \
+  --batch_size "256|512|2048" \
+  --optimizers "adam|sradam" \
+  --num_runs 3
+
+# Multiple noise levels
+python main.py \
+  --dataset CIFAR10 \
+  --noise "0.0|0.05" \
+  --batch_size 512 \
+  --optimizers "adam|sradam"
+
+# Full grid search
+python main.py \
+  --dataset ALL \
+  --noise ALL \
+  --batch_size "512|2048" \
+  --optimizers ALL
 ```

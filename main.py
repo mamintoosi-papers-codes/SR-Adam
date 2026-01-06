@@ -67,6 +67,27 @@ def set_seeds(seed):
         torch.cuda.manual_seed_all(seed)
 
 
+def parse_batch_sizes(raw):
+    """
+    Parse batch_size argument similar to noise/optimizer parsing.
+    - "512" -> [512]
+    - "256|512|2048" or "256;512;2048" -> [256, 512, 2048]
+    """
+    for sep in ["|", ";", "\n"]:
+        if sep in raw:
+            tokens = [t.strip() for t in raw.split(sep) if t.strip()]
+            break
+    else:
+        tokens = [raw.strip()]
+    
+    try:
+        batch_sizes = [int(t) for t in tokens]
+    except ValueError as e:
+        raise ValueError(f"Invalid batch_size value(s): {raw}. Expected integers") from e
+    
+    return batch_sizes
+
+
 def parse_noise_list(raw):
     """
     Parse noise argument similar to optimizer parsing.
@@ -191,10 +212,11 @@ def main():
     parser.add_argument("--model", type=str, default=None,
                         choices=[None, "simplecnn", "resnet18"],
                         help="Model architecture to use (overrides default per-dataset)")
-    parser.add_argument("--batch_size", type=int, default=2048)
+    parser.add_argument("--batch_size", type=str, default="512",
+                        help='Batch size(s): single value or multiple separated by "|" or ";" (e.g., "512" or "256|512|2048")')
     parser.add_argument("--num_epochs", type=int, default=20)
     parser.add_argument("--noise", type=str, default="0.0",
-                    help='Noise level(s): "ALL" for [0.0, 0.05, 0.1], or specific value(s) separated by "|" or ";" (e.g., "0.05" or "0.0|0.1")')
+                        help='Noise level(s): "ALL" for [0.0, 0.05, 0.1], or specific value(s) separated by "|" or ";" (e.g., "0.05" or "0.0|0.1")')
 
     parser.add_argument("--num_runs", type=int, default=5,
                         help="Number of independent runs (different seeds)")
@@ -213,12 +235,6 @@ def main():
         help="Remove previous results for the selected optimizers (dataset/model/noise scope) before running"
     )
 
-    parser.add_argument(
-        "--batch_ablation",
-        action="store_true",
-        help="Enable batch-size ablation: test Adam and SR-Adam with batch_sizes=[256,512,2048]"
-    )
-
     args = parser.parse_args()
 
     device = setup_device()
@@ -229,9 +245,13 @@ def main():
     else:
         dataset_list = [args.dataset]
 
-    # Parse noise levels (new logic with parse_noise_list)
+    # Parse noise levels
     noise_levels = parse_noise_list(args.noise)
     print(f"Noise levels to test: {noise_levels}")
+
+    # Parse batch sizes (NEW)
+    batch_sizes = parse_batch_sizes(args.batch_size)
+    print(f"Batch sizes to test: {batch_sizes}")
 
     all_optimizer_names = [
         "SGD",
@@ -255,209 +275,168 @@ def main():
     # Multi-run experiments
     # ------------------------------------------------------------------
 
-    all_results = {}      # optimizer -> list of run metrics
-    summary_stats = {}    # optimizer -> mean/std statistics
+    all_results = {}
+    summary_stats = {}
 
-    # Determine batch-size configurations
-    if args.batch_ablation:
-        batch_ablation_configs = get_batch_ablation_configs(True, optimizer_names)
-        print(f"[Ablation] Batch-size study enabled for: {batch_ablation_configs}")
-    else:
-        batch_ablation_configs = get_batch_ablation_configs(False, optimizer_names)
-
-    # Iterate dataset x noise x optimizer grid
+    # Iterate dataset x noise x batch_size x optimizer grid
     for dataset_name in dataset_list:
         for noise in noise_levels:
-            print(f"\n=== Dataset: {dataset_name} | Noise: {noise} ===")
+            for batch_size in batch_sizes:
+                print(f"\n=== Dataset: {dataset_name} | Noise: {noise} | Batch: {batch_size} ===")
 
-            # select model per dataset unless overridden
-            if args.model:
-                model_name = args.model
-            else:
-                model_name = 'simplecnn' if dataset_name == 'CIFAR10' else 'resnet18'
+                # select model per dataset unless overridden
+                if args.model:
+                    model_name = args.model
+                else:
+                    model_name = 'simplecnn' if dataset_name == 'CIFAR10' else 'resnet18'
 
-            print(f"Using model: {model_name}")
+                print(f"Using model: {model_name}")
 
-            # Optional cleanup: remove previous results for chosen optimizers
-            if args.clean_previous:
+                # Optional cleanup
+                if args.clean_previous:
+                    for opt_name in optimizer_names:
+                        folder = os.path.join('results', dataset_name, model_name, f'noise_{noise}', opt_name)
+                        if os.path.isdir(folder):
+                            try:
+                                shutil.rmtree(folder)
+                                print(f"[Clean] Removed previous results: {folder}")
+                            except Exception as e:
+                                print(f"[Clean] Failed to remove {folder}: {e}")
+
+                # Load data with current batch_size
+                train_loader, test_loader, num_classes = get_data_loaders(
+                    dataset_name=dataset_name,
+                    batch_size=batch_size,
+                    noise_std=noise
+                )
+
+                results_per_optimizer = {}
+
                 for opt_name in optimizer_names:
-                    folder = os.path.join('results', dataset_name, model_name, f'noise_{noise}', opt_name)
-                    if os.path.isdir(folder):
-                        try:
-                            shutil.rmtree(folder)
-                            print(f"[Clean] Removed previous results: {folder}")
-                        except Exception as e:
-                            print(f"[Clean] Failed to remove {folder}: {e}")
+                    print("\n" + "=" * 80)
+                    print(f"Optimizer: {opt_name}")
+                    print("=" * 80)
 
-            # Load data for this dataset/noise
-            # Use args.batch_size as default; will override in ablation loop if needed
-            train_loader, test_loader, num_classes = get_data_loaders(
-                dataset_name=dataset_name,
-                batch_size=args.batch_size,
-                noise_std=noise
-            )
+                    all_results_for_opt = []
 
-            # Prepare container for plotting epoch mean/std across optimizers
-            results_per_optimizer = {}
+                    for run in range(args.num_runs):
+                        seed = args.base_seed + run
+                        print(f"\nRun {run + 1}/{args.num_runs} | seed = {seed}")
 
-            # Iterate over ablation configurations (batch_size always set)
-            for opt_name, batch_size in batch_ablation_configs:
-                
-                # Reload data with correct batch size
-                if batch_size != args.batch_size:
-                    train_loader, test_loader, _ = get_data_loaders(
-                        dataset_name=dataset_name,
-                        batch_size=batch_size,
-                        noise_std=noise
-                    )
-
-                print("\n" + "=" * 80)
-                print(f"Optimizer: {opt_name} (batch_size: {batch_size})")
-                print("=" * 80)
-
-                all_results_for_opt = []
-
-                for run in range(args.num_runs):
-                    seed = args.base_seed + run
-                    print(f"\nRun {run + 1}/{args.num_runs} | seed = {seed}")
-
-                    # Check if run already exists; skip if so
-                    skip_training, loaded_metrics = should_skip_run(
-                        dataset_name, model_name, noise, opt_name, run + 1,
-                        args.num_epochs, args.clean_previous, batch_size=batch_size
-                    )
-
-                    if skip_training and loaded_metrics:
-                        print(f"  [Reuse] Skipping training")
-                        metrics = loaded_metrics
-                    else:
-                        # Train normally
-                        set_seeds(seed)
-
-                        model = get_model(model_name, num_classes=num_classes).to(device)
-                        print(f"Model params: {count_parameters(model):,}")
-
-                        optimizer = create_optimizer(opt_name, model)
-                        criterion = nn.CrossEntropyLoss()
-
-                        metrics = train_model(
-                            model=model,
-                            train_loader=train_loader,
-                            test_loader=test_loader,
-                            optimizer=optimizer,
-                            criterion=criterion,
-                            num_epochs=args.num_epochs,
-                            device=device,
+                        # Check if run exists
+                        skip_training, loaded_metrics = should_skip_run(
+                            dataset_name, model_name, noise, opt_name, run + 1,
+                            args.num_epochs, args.clean_previous, batch_size=batch_size
                         )
 
-                    metrics["seed"] = seed
+                        if skip_training and loaded_metrics:
+                            print(f"  [Reuse] Skipping training")
+                            metrics = loaded_metrics
+                        else:
+                            set_seeds(seed)
 
-                    # Tag with ablation metadata (batch_size always set)
-                    metrics = tag_ablation_metadata(metrics, batch_size=batch_size)
+                            model = get_model(model_name, num_classes=num_classes).to(device)
+                            print(f"Model params: {count_parameters(model):,}")
 
-                    all_results_for_opt.append(metrics)
+                            optimizer = create_optimizer(opt_name, model)
+                            criterion = nn.CrossEntropyLoss()
 
-                    # Save per-run CSV + meta
-                    save_run_metrics(metrics, dataset_name, model_name, noise, opt_name, run + 1)
+                            metrics = train_model(
+                                model=model,
+                                train_loader=train_loader,
+                                test_loader=test_loader,
+                                optimizer=optimizer,
+                                criterion=criterion,
+                                num_epochs=args.num_epochs,
+                                device=device,
+                            )
 
-                    # Save best and last model checkpoints (only if just trained)
-                    if not skip_training:
-                        try:
-                            save_run_checkpoints(dataset_name, model_name, noise, opt_name, run + 1, metrics, base_dir='runs')
-                        except Exception as e:
-                            print(f"Checkpoint saving failed: {e}")
+                        metrics["seed"] = seed
+                        metrics = tag_ablation_metadata(metrics, batch_size=batch_size)
 
-                # Aggregate runs for this optimizer/dataset/noise
-                try:
-                    # Run statistical tests if applicable
-                    stat_tests = None
-                    if opt_name in ["Adam", "SR-Adam", "SR-Adam-All-Weights"]:
-                        # Will be computed after all optimizers for this grid point
+                        all_results_for_opt.append(metrics)
+
+                        save_run_metrics(metrics, dataset_name, model_name, noise, opt_name, run + 1)
+
+                        if not skip_training:
+                            try:
+                                save_run_checkpoints(dataset_name, model_name, noise, opt_name, run + 1, metrics, base_dir='runs')
+                            except Exception as e:
+                                print(f"Checkpoint saving failed: {e}")
+
+                    # Aggregate
+                    try:
                         stat_tests = None
-
-                    summary_path, excel_path = aggregate_runs_and_save(
-                        dataset_name, model_name, noise, opt_name, stat_tests=stat_tests
-                    )
-                    print(f"Aggregated results saved: {summary_path}, {excel_path}")
-                except Exception as e:
-                    print(f"Aggregation failed: {e}")
-
-                # Compute and store summary stats for reporting across grid
-                final_accs = [m['test_acc'][-1] for m in all_results_for_opt]
-                best_accs = [max(m['test_acc']) for m in all_results_for_opt]
-
-                summary_stats_key = f"{dataset_name}|noise_{noise}|{opt_name}"
-                if batch_size:
-                    summary_stats_key += f"|bs_{batch_size}"
-
-                summary_stats[summary_stats_key] = {
-                    'final_mean': float(np.mean(final_accs)),
-                    'final_std': float(np.std(final_accs)),
-                    'best_mean': float(np.mean(best_accs)),
-                    'best_std': float(np.std(best_accs)),
-                    'num_runs': args.num_runs,
-                }
-
-                # keep runs for plotting per-epoch mean/std
-                results_per_optimizer[opt_name] = all_results_for_opt
-
-                # accumulate per-dataset noise summary for later noise-vs-accuracy plot
-                # initialize container at dataset level if missing
-                dataset_level_key = f"{dataset_name}|{model_name}"
-                if dataset_level_key not in summary_stats:
-                    summary_stats[dataset_level_key] = {}
-                if 'noise_table' not in summary_stats[dataset_level_key]:
-                    summary_stats[dataset_level_key]['noise_table'] = {}
-                if opt_name not in summary_stats[dataset_level_key]['noise_table']:
-                    summary_stats[dataset_level_key]['noise_table'][opt_name] = []
-                summary_stats[dataset_level_key]['noise_table'][opt_name].append({
-                    'noise': noise,
-                    'final_mean': summary_stats[summary_stats_key]['final_mean'],
-                    'final_std': summary_stats[summary_stats_key]['final_std']
-                })
-
-            # After all optimizers for this dataset+noise: run statistical tests
-            # and re-save aggregates with p-values
-            try:
-                stat_test_results = run_statistical_tests(results_per_optimizer, list(results_per_optimizer.keys()))
-                
-                # Re-aggregate with test results
-                for opt_name in results_per_optimizer.keys():
-                    # Filter tests for this optimizer (as comparator)
-                    relevant_tests = [t for t in stat_test_results if opt_name in [t['optimizer_1'], t['optimizer_2']]]
-                    if relevant_tests:
-                        summary_path, _ = aggregate_runs_and_save(
-                            dataset_name, model_name, noise, opt_name, 
-                            stat_tests=relevant_tests
+                        summary_path, excel_path = aggregate_runs_and_save(
+                            dataset_name, model_name, noise, opt_name, stat_tests=stat_tests
                         )
-                        print(f"Updated {opt_name} aggregates with statistical test results")
-            except Exception as e:
-                print(f"Statistical testing failed: {e}")
+                        print(f"Aggregated results saved: {summary_path}, {excel_path}")
+                    except Exception as e:
+                        print(f"Aggregation failed: {e}")
 
-            # After all optimizers for this dataset+noise: plot epoch mean ± std
-            try:
-                save_folder = os.path.join('results', dataset_name, model_name, f'noise_{noise}')
-                os.makedirs(save_folder, exist_ok=True)
-                plot_mean_std(results_per_optimizer, list(results_per_optimizer.keys()),
-                              save_path=os.path.join(save_folder, 'test_acc_epoch_mean_std.png'))
-                print(f"Saved epoch mean/std plot to {save_folder}")
-            except Exception as e:
-                print(f"Failed to plot epoch mean/std: {e}")
+                    # Summary stats
+                    final_accs = [m['test_acc'][-1] for m in all_results_for_opt]
+                    best_accs = [max(m['test_acc']) for m in all_results_for_opt]
 
-    # ------------------------------------------------------------------
-    # Save results
-    # ------------------------------------------------------------------
+                    summary_stats_key = f"{dataset_name}|noise_{noise}|{opt_name}|bs_{batch_size}"
 
-    # Save global summary of all grid experiments
+                    summary_stats[summary_stats_key] = {
+                        'final_mean': float(np.mean(final_accs)),
+                        'final_std': float(np.std(final_accs)),
+                        'best_mean': float(np.mean(best_accs)),
+                        'best_std': float(np.std(best_accs)),
+                        'num_runs': args.num_runs,
+                    }
+
+                    results_per_optimizer[opt_name] = all_results_for_opt
+
+                    dataset_level_key = f"{dataset_name}|{model_name}"
+                    if dataset_level_key not in summary_stats:
+                        summary_stats[dataset_level_key] = {}
+                    if 'noise_table' not in summary_stats[dataset_level_key]:
+                        summary_stats[dataset_level_key]['noise_table'] = {}
+                    if opt_name not in summary_stats[dataset_level_key]['noise_table']:
+                        summary_stats[dataset_level_key]['noise_table'][opt_name] = []
+                    summary_stats[dataset_level_key]['noise_table'][opt_name].append({
+                        'noise': noise,
+                        'batch_size': batch_size,
+                        'final_mean': summary_stats[summary_stats_key]['final_mean'],
+                        'final_std': summary_stats[summary_stats_key]['final_std']
+                    })
+
+                # Statistical tests
+                try:
+                    stat_test_results = run_statistical_tests(results_per_optimizer, list(results_per_optimizer.keys()))
+                    
+                    for opt_name in results_per_optimizer.keys():
+                        relevant_tests = [t for t in stat_test_results if opt_name in [t['optimizer_1'], t['optimizer_2']]]
+                        if relevant_tests:
+                            summary_path, _ = aggregate_runs_and_save(
+                                dataset_name, model_name, noise, opt_name, 
+                                stat_tests=relevant_tests
+                            )
+                            print(f"Updated {opt_name} aggregates with statistical test results")
+                except Exception as e:
+                    print(f"Statistical testing failed: {e}")
+
+                # Plot
+                try:
+                    save_folder = os.path.join('results', dataset_name, model_name, f'noise_{noise}')
+                    os.makedirs(save_folder, exist_ok=True)
+                    plot_mean_std(results_per_optimizer, list(results_per_optimizer.keys()),
+                                  save_path=os.path.join(save_folder, f'test_acc_epoch_mean_std_bs{batch_size}.png'))
+                    print(f"Saved epoch mean/std plot to {save_folder}")
+                except Exception as e:
+                    print(f"Failed to plot epoch mean/std: {e}")
+
+    # Save summary
     os.makedirs('results', exist_ok=True)
     save_multirun_summary(summary_stats, 'results')
 
-    # Print concise summary for all grid entries
     print("\n" + "=" * 80)
-    print("FINAL GRID SUMMARY (mean ± std over runs)")
+    print("FINAL GRID SUMMARY")
     print("=" * 80)
     for key, stats in summary_stats.items():
-        # Skip non-summary entries (e.g., dataset-level containers)
         if not isinstance(stats, dict):
             continue
 
@@ -467,16 +446,6 @@ def main():
                 f"{stats['final_mean']:.2f} ± {stats['final_std']:.2f} "
                 f"(best: {stats['best_mean']:.2f} ± {stats['best_std']:.2f})"
             )
-        elif 'noise_table' in stats:
-            # Print noise-vs-accuracy table for this dataset|model key
-            print(f"\nNoise summary for {key}:")
-            for opt_name, entries in stats['noise_table'].items():
-                print(f"  Optimizer: {opt_name}")
-                for e in entries:
-                    print(f"    noise={e['noise']}: {e['final_mean']:.2f} ± {e['final_std']:.2f}")
-        else:
-            # Unknown dict shape; skip
-            continue
 
 if __name__ == "__main__":
     main()
