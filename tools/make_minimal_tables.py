@@ -68,7 +68,7 @@ def main():
                         help='Batch size(s) to include')
     parser.add_argument("--optimizers", type=str, default="ALL",
                         help='Optimizer(s): "ALL" or specific names')
-    parser.add_argument("--output", type=str, default="paper_figures/minimal-tables-content.tex",
+    parser.add_argument("--output", type=str, default="paper/minimal-tables-content.tex",
                         help='Output .tex file path (batch sizes will be appended)')
     
     args = parser.parse_args()

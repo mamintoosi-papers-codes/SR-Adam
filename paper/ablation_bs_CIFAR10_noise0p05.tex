@@ -1,0 +1,32 @@
+% Auto-generated
+\usepackage{booktabs}
+
+% Final test accuracy (mean $\pm$ std) vs batch size
+\begin{table}[t]
+  \centering
+  \begin{tabular}{lccccc}
+    \toprule
+    Method & BS=64 & BS=128 & BS=256 & BS=512 & BS=1024 \\
+    \midrule
+    Adam & \textbf{76.00 $\pm$ 0.98} & \textbf{76.30 $\pm$ 0.50} & \textbf{75.40 $\pm$ 0.65} & 73.54 $\pm$ 0.87 & 71.63 $\pm$ 1.34 \\
+    SR-Adam & 71.34 $\pm$ 0.99 & 73.67 $\pm$ 1.79 & 75.38 $\pm$ 0.57 & \textbf{75.75 $\pm$ 0.37} & \textbf{73.89 $\pm$ 1.68} \\
+    \bottomrule
+  \end{tabular}
+  \caption{Final test accuracy (mean $\pm$ std) vs batch size on CIFAR10 / simplecnn (noise=0.05).}
+  \label{tab:ablation-bs-cifar10-final}
+\end{table}
+
+% Best test accuracy over epochs (mean $\pm$ std) vs batch size
+\begin{table}[t]
+  \centering
+  \begin{tabular}{lccccc}
+    \toprule
+    Method & BS=64 & BS=128 & BS=256 & BS=512 & BS=1024 \\
+    \midrule
+    Adam & \textbf{76.17 $\pm$ 1.15} & \textbf{76.31 $\pm$ 0.52} & 75.52 $\pm$ 0.55 & 73.95 $\pm$ 0.44 & 71.96 $\pm$ 1.07 \\
+    SR-Adam & 72.02 $\pm$ 0.81 & 73.75 $\pm$ 1.87 & \textbf{75.73 $\pm$ 0.35} & \textbf{75.84 $\pm$ 0.31} & \textbf{73.89 $\pm$ 1.68} \\
+    \bottomrule
+  \end{tabular}
+  \caption{Best test accuracy over epochs (mean $\pm$ std) vs batch size on CIFAR10 / simplecnn (noise=0.05).}
+  \label{tab:ablation-bs-cifar10-best}
+\end{table}

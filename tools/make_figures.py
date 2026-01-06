@@ -32,7 +32,7 @@ def get_optimizer_order():
         "Momentum",
         "Adam",
         "SR-Adam",
-        "SR-Adam-All-Weights",
+        # "SR-Adam-All-Weights",
     ]
 
 def get_optimizer_colors():
@@ -42,7 +42,7 @@ def get_optimizer_colors():
         "Momentum": "#ff7f0e",
         "Adam": "#2ca02c",
         "SR-Adam": "#d62728",
-        "SR-Adam-All-Weights": "#9467bd",
+        # "SR-Adam-All-Weights": "#9467bd",
     }
     return colors
 
@@ -51,10 +51,10 @@ def generate_output_dir(batch_sizes, output_dir):
     Generate unique output directory based on batch sizes.
     
     Examples:
-    - [512] -> "paper_figures/bs512"
-    - [256, 512, 2048] -> "paper_figures/bs256-512-2048"
+    - [512] -> "paper/bs512"
+    - [256, 512, 2048] -> "paper/bs256-512-2048"
     """
-    if not batch_sizes or output_dir == "paper_figures":
+    if not batch_sizes or output_dir == "paper":
         base_dir = output_dir
     else:
         bs_suffix = "_bs" + "-".join(str(bs) for bs in sorted(batch_sizes))
@@ -72,7 +72,7 @@ def main():
                         help='Noise level(s) to plot')
     parser.add_argument("--batch_size", type=str, default="512",
                         help='Batch size(s) to include in plots')
-    parser.add_argument("--output_dir", type=str, default="paper_figures",
+    parser.add_argument("--output_dir", type=str, default="paper",
                         help='Output directory for figures (batch sizes will be appended)')
     
     args = parser.parse_args()
