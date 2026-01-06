@@ -1,8 +1,12 @@
 {
-  "num_runs": 5,
+  "dataset": "CIFAR100",
+  "model": "simplecnn",
+  "noise": 0.1,
+  "optimizer": "Momentum",
   "batch_size": 512,
   "final_test_acc_mean": 34.378,
-  "final_test_acc_std": 0.6349929133462814,
+  "final_test_acc_std": 0.7099436597364592,
   "best_test_acc_mean": 34.378,
-  "best_test_acc_std": 0.6349929133462814
+  "best_test_acc_std": 0.7099436597364592,
+  "num_runs": 5
 }

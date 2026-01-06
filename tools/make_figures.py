@@ -1,214 +1,216 @@
 import os
-import glob
+import json
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 import argparse
+import matplotlib.pyplot as plt
+from pathlib import Path
 
-RESULTS_ROOT = os.path.join(os.path.dirname(__file__), "results")
-FIG_DIR = os.path.join(os.path.dirname(__file__), "..", "paper")
-os.makedirs(FIG_DIR, exist_ok=True)
-
-plt.style.use('seaborn-v0_8')
-
-OPT_ORDER = ["SGD", "Momentum", "Adam", "SR-Adam"]
-
-
-def load_epoch_stats(dataset, model, noise, optimizer, batch_size=512):
-    path = os.path.join(RESULTS_ROOT, dataset, model, f"noise_{noise}", optimizer, f"batch_size_{batch_size}", "aggregated_epoch_stats.csv")
-    if not os.path.isfile(path):
-        raise FileNotFoundError(f"missing aggregated_epoch_stats: {path}")
-    return pd.read_csv(path)
-
-
-def figure_epoch_curve(batch_size=512):
-    dataset = "CIFAR10"
-    model = "simplecnn"
-    noise = "0.1"
-    optimizers = ["Adam", "SR-Adam"]
-
-    fig, ax = plt.subplots(figsize=(5, 3.2))
-    for opt in optimizers:
-        df = load_epoch_stats(dataset, model, noise, opt, batch_size)
-        ax.plot(df["Epoch"], df["Test Acc Mean"], label=opt, linewidth=2)
-        ax.fill_between(df["Epoch"], df["Test Acc Mean"] - df["Test Acc Std"], df["Test Acc Mean"] + df["Test Acc Std"], alpha=0.2)
-
-    ax.set_xlabel("Epoch")
-    ax.set_ylabel("Test Accuracy (%)")
-    ax.set_title(f"{dataset} (noise={noise})")
-    ax.legend()
-    fig.tight_layout()
-    out_path = os.path.join(FIG_DIR, f"cifar10_noise0p1_epoch_bs{batch_size}.pdf")
-    fig.savefig(out_path)
-    plt.close(fig)
-    return out_path
-
-
-def load_summary():
-    df = pd.read_csv(os.path.join(RESULTS_ROOT, "summary_statistics.csv"), index_col=0)
-    df = df.reset_index().rename(columns={"index": "key"})
-    parts = df["key"].str.split("|", expand=True)
-    df["dataset"] = parts[0]
-    df["noise"] = parts[1].str.replace("noise_", "", regex=False)
-    df["optimizer"] = parts[2]
-    return df
-
-
-def figure_noise_sweep():
-    df = load_summary()
-    datasets = [
-        ("CIFAR10", "simplecnn"),
-        ("CIFAR100", "resnet18"),
-    ]
-    optimizers = ["Adam", "SR-Adam"]
-    outputs = []
-
-    for dataset, _model in datasets:
-        fig, ax = plt.subplots(figsize=(5, 3.2))
-        for opt in optimizers:
-            sub = df[(df["dataset"] == dataset) & (df["optimizer"] == opt)]
-            sub = sub[sub["noise"].isin(["0.0", "0.05", "0.1"])]
-            sub = sub.sort_values("noise", key=lambda s: s.astype(float))
-            ax.errorbar(sub["noise"].astype(float), sub["final_mean"], yerr=sub["final_std"], label=opt, linewidth=2, capsize=4, marker="o")
-        ax.set_xlabel("Noise Std")
-        ax.set_ylabel("Final Test Accuracy (%)")
-        ax.set_title(dataset)
-        ax.legend()
-        fig.tight_layout()
-        out_path = os.path.join(FIG_DIR, f"{dataset.lower()}_noise_sweep_bs512.pdf")
-        fig.savefig(out_path)
-        plt.close(fig)
-        outputs.append(out_path)
-
-    return outputs
-
-
-def load_runs_for_loss(opt_path):
-    """Load all run CSV files and pad to same length for loss plotting."""
-    run_files = sorted(glob.glob(os.path.join(opt_path, "run_*_metrics.csv")))
-    if not run_files:
+def parse_list_arg(raw, value_type=str):
+    """Parse pipe/semicolon-separated list arguments."""
+    if raw.upper() == "ALL":
         return None
-    runs = [pd.read_csv(f) for f in run_files]
-    max_len = max(len(r) for r in runs)
     
-    def pad_col(col):
-        mat = np.zeros((len(runs), max_len))
-        for i, r in enumerate(runs):
-            arr = r[col].values
-            mat[i, :len(arr)] = arr
-        return mat
+    for sep in ["|", ";", ","]:
+        if sep in raw:
+            tokens = [t.strip() for t in raw.split(sep) if t.strip()]
+            break
+    else:
+        tokens = [raw.strip()]
     
-    train_loss = pad_col("Train Loss")
-    test_loss = pad_col("Test Loss")
-    epochs = np.arange(1, max_len + 1)
-    return epochs, train_loss, test_loss
+    if value_type == float:
+        return [float(t) for t in tokens]
+    elif value_type == int:
+        return [int(t) for t in tokens]
+    else:
+        return tokens
 
+def get_optimizer_order():
+    """Return the standard optimizer ordering from main.py"""
+    return [
+        "SGD",
+        "Momentum",
+        "Adam",
+        "SR-Adam",
+        "SR-Adam-All-Weights",
+    ]
 
-def figure_loss_curves(dataset, model="simplecnn", batch_size=512):
-    """Generate loss curves for all noise levels and optimizers."""
-    outputs = []
-    for noise in ["0.0", "0.05", "0.1"]:
-        noise_dir = f"noise_{noise}"
-        base = os.path.join(RESULTS_ROOT, dataset, model, noise_dir)
-        if not os.path.isdir(base):
-            continue
+def get_optimizer_colors():
+    """Return consistent colors for optimizers"""
+    colors = {
+        "SGD": "#1f77b4",
+        "Momentum": "#ff7f0e",
+        "Adam": "#2ca02c",
+        "SR-Adam": "#d62728",
+        "SR-Adam-All-Weights": "#9467bd",
+    }
+    return colors
 
-        fig, ax = plt.subplots(figsize=(6, 4))
-        for opt in OPT_ORDER:
-            opt_path = os.path.join(base, opt, f"batch_size_{batch_size}")
-            data = load_runs_for_loss(opt_path)
-            if data is None:
-                continue
-            epochs, train_loss, test_loss = data
-            mean = test_loss.mean(axis=0)
-            std = test_loss.std(axis=0)
-            ax.plot(epochs, mean, label=opt, linewidth=2)
-            ax.fill_between(epochs, mean - std, mean + std, alpha=0.2)
-
-        ax.set_xlabel("Epoch")
-        ax.set_ylabel("Test Loss")
-        ax.set_title(f"{dataset} / {model} (noise={noise})")
-        ax.legend()
-        ax.grid(True)
-        fig.tight_layout()
-
-        out_path = os.path.join(FIG_DIR, f"{dataset.lower()}_noise{noise}_loss_bs{batch_size}.pdf")
-        fig.savefig(out_path)
-        plt.close(fig)
-        outputs.append(out_path)
+def generate_output_dir(batch_sizes, output_dir):
+    """
+    Generate unique output directory based on batch sizes.
     
-    return outputs
-
-
-def figure_acc_curves(dataset, model="simplecnn", batch_size=512):
-    """Generate test accuracy curves for all noise levels and optimizers."""
-    outputs = []
-    for noise in ["0.0", "0.05", "0.1"]:
-        noise_dir = f"noise_{noise}"
-        base = os.path.join(RESULTS_ROOT, dataset, model, noise_dir)
-        if not os.path.isdir(base):
-            continue
-
-        fig, ax = plt.subplots(figsize=(6, 4))
-        for opt in OPT_ORDER:
-            opt_path = os.path.join(base, opt, f"batch_size_{batch_size}")
-            agg_path = os.path.join(opt_path, "aggregated_epoch_stats.csv")
-            if not os.path.isfile(agg_path):
-                continue
-            df = pd.read_csv(agg_path)
-            ax.plot(df["Epoch"], df["Test Acc Mean"], label=opt, linewidth=2)
-            ax.fill_between(
-                df["Epoch"],
-                df["Test Acc Mean"] - df["Test Acc Std"],
-                df["Test Acc Mean"] + df["Test Acc Std"],
-                alpha=0.2,
-            )
-
-        ax.set_xlabel("Epoch")
-        ax.set_ylabel("Test Accuracy (%)")
-        ax.set_title(f"{dataset} / {model} (noise={noise})")
-        ax.legend()
-        ax.grid(True)
-        fig.tight_layout()
-
-        out_path = os.path.join(FIG_DIR, f"{dataset.lower()}_noise{noise}_acc_bs{batch_size}.pdf")
-        fig.savefig(out_path)
-        plt.close(fig)
-        outputs.append(out_path)
+    Examples:
+    - [512] -> "paper_figures/bs512"
+    - [256, 512, 2048] -> "paper_figures/bs256-512-2048"
+    """
+    if not batch_sizes or output_dir == "paper_figures":
+        base_dir = output_dir
+    else:
+        bs_suffix = "_bs" + "-".join(str(bs) for bs in sorted(batch_sizes))
+        base_dir = output_dir + bs_suffix
     
-    return outputs
-
+    return base_dir
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate figures for CIFAR results")
-    parser.add_argument("--batch_size", type=int, default=512, help="Batch size for loading results")
+    parser = argparse.ArgumentParser(
+        description="Generate publication figures from results"
+    )
+    parser.add_argument("--dataset", type=str, default="ALL",
+                        help='Dataset(s) to plot')
+    parser.add_argument("--noise", type=str, default="ALL",
+                        help='Noise level(s) to plot')
+    parser.add_argument("--batch_size", type=str, default="512",
+                        help='Batch size(s) to include in plots')
+    parser.add_argument("--output_dir", type=str, default="paper_figures",
+                        help='Output directory for figures (batch sizes will be appended)')
+    
     args = parser.parse_args()
-
-    batch_size = args.batch_size
     
-    # Original figures
-    epoch_fig = figure_epoch_curve(batch_size)
-    noise_figs = figure_noise_sweep()
+    # Parse filters
+    datasets = parse_list_arg(args.dataset) or ["CIFAR10", "CIFAR100"]
+    noise_levels = parse_list_arg(args.noise, float) or [0.0, 0.05, 0.1]
+    batch_sizes = parse_list_arg(args.batch_size, int) or [512]
     
-    # New comprehensive plots for all noise levels
-    print("Generating figures...")
-    print(f"  Using batch_size={batch_size}")
+    # Get standard orderings
+    optimizer_order = get_optimizer_order()
+    optimizer_colors = get_optimizer_colors()
     
-    loss_figs_cifar10 = figure_loss_curves("CIFAR10", "simplecnn", batch_size)
-    loss_figs_cifar100 = figure_loss_curves("CIFAR100", "simplecnn", batch_size)
+    # Generate unique output directory
+    output_dir = generate_output_dir(batch_sizes, args.output_dir)
     
-    acc_figs_cifar10 = figure_acc_curves("CIFAR10", "simplecnn", batch_size)
-    acc_figs_cifar100 = figure_acc_curves("CIFAR100", "simplecnn", batch_size)
+    print(f"\n{'='*80}")
+    print("Generating Publication Figures")
+    print(f"{'='*80}")
+    print(f"Datasets:    {datasets}")
+    print(f"Noise:       {noise_levels}")
+    print(f"Batch sizes: {batch_sizes}")
+    print(f"Output dir:  {output_dir}")
+    print(f"{'='*80}\n")
     
-    print("\nSaved figures:")
-    print(f"  Epoch curve: {epoch_fig}")
-    for f in noise_figs:
-        print(f"  Noise sweep: {f}")
-    for f in loss_figs_cifar10 + loss_figs_cifar100:
-        print(f"  Loss curves: {f}")
-    for f in acc_figs_cifar10 + acc_figs_cifar100:
-        print(f"  Acc curves: {f}")
-
+    # Create output directory
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    
+    # Collect data
+    figure_data = {}
+    
+    for dataset in datasets:
+        for noise in noise_levels:
+            for batch_size in batch_sizes:
+                results_dir = Path('results') / dataset / 'simplecnn' / f'noise_{noise}'
+                
+                if not results_dir.exists():
+                    continue
+                
+                for opt_dir in results_dir.iterdir():
+                    if not opt_dir.is_dir():
+                        continue
+                    
+                    opt_name = opt_dir.name
+                    batch_dir = opt_dir / f'batch_size_{batch_size}'
+                    summary_file = batch_dir / 'aggregated_summary.json'
+                    
+                    if not summary_file.exists():
+                        continue
+                    
+                    try:
+                        with open(summary_file) as f:
+                            summary = json.load(f)
+                        
+                        key = (dataset, noise, batch_size, opt_name)
+                        figure_data[key] = summary
+                    except Exception as e:
+                        print(f"[ERROR] Failed to read {summary_file}: {e}")
+                        continue
+    
+    if not figure_data:
+        print("❌ No data found! Run regenerate_aggregates.py first.\n")
+        return
+    
+    # Generate comparison figures
+    for dataset in datasets:
+        print(f"\nGenerating figures for {dataset}:")
+        
+        fig, axes = plt.subplots(1, len(noise_levels), figsize=(5*len(noise_levels), 4))
+        if len(noise_levels) == 1:
+            axes = [axes]
+        
+        for noise_idx, noise in enumerate(noise_levels):
+            ax = axes[noise_idx]
+            
+            # Collect data for this noise level
+            data_points = []
+            
+            for batch_size in batch_sizes:
+                for opt_name in optimizer_order:
+                    key = (dataset, noise, batch_size, opt_name)
+                    if key in figure_data:
+                        summary = figure_data[key]
+                        data_points.append({
+                            'optimizer': opt_name,
+                            'batch_size': batch_size,
+                            'best_acc': summary['best_test_acc_mean'],
+                            'std': summary['best_test_acc_std']
+                        })
+            
+            if not data_points:
+                ax.text(0.5, 0.5, 'No data', ha='center', va='center')
+                ax.set_title(f'Noise = {noise}')
+                continue
+            
+            # Plot
+            batch_sizes_unique = sorted(set(dp['batch_size'] for dp in data_points))
+            x_pos = np.arange(len(batch_sizes_unique))
+            width = 0.15
+            
+            for idx, opt_name in enumerate(optimizer_order):
+                means = []
+                stds = []
+                
+                for bs in batch_sizes_unique:
+                    dp = next((d for d in data_points 
+                              if d['optimizer'] == opt_name and d['batch_size'] == bs), None)
+                    if dp:
+                        means.append(dp['best_acc'])
+                        stds.append(dp['std'])
+                    else:
+                        means.append(0)
+                        stds.append(0)
+                
+                offset = (idx - len(optimizer_order)/2) * width
+                color = optimizer_colors.get(opt_name, None)
+                ax.bar(x_pos + offset, means, width, label=opt_name, 
+                       color=color, alpha=0.8, yerr=stds, capsize=3)
+            
+            ax.set_xlabel('Batch Size')
+            ax.set_ylabel('Test Accuracy (%)')
+            ax.set_title(f'{dataset} - Noise = {noise}')
+            ax.set_xticks(x_pos)
+            ax.set_xticklabels(batch_sizes_unique)
+            ax.legend(fontsize=8, loc='lower right')
+            ax.grid(axis='y', alpha=0.3)
+        
+        plt.tight_layout()
+        
+        # Save figure with batch_size info
+        bs_suffix = "_bs" + "-".join(str(bs) for bs in sorted(batch_sizes))
+        fig_path = Path(output_dir) / f"{dataset}_comparison{bs_suffix}.png"
+        plt.savefig(fig_path, dpi=150, bbox_inches='tight')
+        print(f"  ✓ Saved: {fig_path}")
+        plt.close()
+    
+    print(f"\n✓ All figures saved to: {output_dir}")
+    print(f"{'='*80}\n")
 
 if __name__ == "__main__":
     main()

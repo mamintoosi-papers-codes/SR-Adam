@@ -1,5 +1,5 @@
 # Fdb version 4
-["pdflatex"] 1767079200.24487 "d:/git/mamintoosi-papers-codes/SR-Adam/paper_figures/paper-draft.tex" "paper-draft.pdf" "paper-draft" 1767079202.59219 0
+["pdflatex"] 1767079200.24487 "d:/git/mamintoosi-papers-codes/SR-Adam/paper/paper-draft.tex" "paper-draft.pdf" "paper-draft" 1767079202.59219 0
   "cifar100_noise0.05_acc_mean_std.pdf" 1767072547 17915 b83d77a27af932e6edccfa7e1af0c963 ""
   "cifar100_noise0.05_loss_mean_std.pdf" 1767072552 16999 ba17ceb005437f27e0ef7b7b33eaae42 ""
   "cifar100_noise0.0_acc_mean_std.pdf" 1767072546 17925 2b012738153659f8e9c1f4be677f1aac ""
@@ -156,7 +156,7 @@
   "d:/Programs/texlive/2024/texmf-var/fonts/map/pdftex/updmap/pdftex.map" 1736923626 5513090 28d8d0cb062054eb735396eadfc01112 ""
   "d:/Programs/texlive/2024/texmf-var/web2c/pdftex/pdflatex.fmt" 1736923961 8221786 003e6fc6c06cfeeb585aee2870436b61 ""
   "d:/Programs/texlive/2024/texmf.cnf" 1736923575 713 e69b156964470283e0530f5060668171 ""
-  "d:/git/mamintoosi-papers-codes/SR-Adam/paper_figures/paper-draft.tex" 1767073717 17594 29c077253f068ad6fdd9005a0317eaa6 ""
+  "d:/git/mamintoosi-papers-codes/SR-Adam/paper/paper-draft.tex" 1767073717 17594 29c077253f068ad6fdd9005a0317eaa6 ""
   "experimental_figures.tex" 1766988332 2212 94be1c773867726a78b8bc7e05633473 ""
   "minimal-tables-content.tex" 1767072542 4166 79ad146b752a70659105bdfd788f3409 ""
   "paper-draft.aux" 1767079202 9990 612a39fa0b132fd62ec558bd0d4e43e8 "pdflatex"

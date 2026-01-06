@@ -144,10 +144,10 @@ if errorlevel 1 goto error
 
 if "%ABLATION_MODE%"=="1" (
     echo Generating tables for all batch sizes
-    python tools\make_minimal_tables.py --batch_size "256|512|2048" --output paper_figures\minimal-tables-content.tex
+    python tools\make_minimal_tables.py --batch_size "256|512|2048" --output paper\minimal-tables-content.tex
     if errorlevel 1 goto error
     
-    python tools\make_minimal_tables.py --batch_size "256|512|2048" --output paper_figures\ablation-batch-size.tex
+    python tools\make_minimal_tables.py --batch_size "256|512|2048" --output paper\ablation-batch-size.tex
     if errorlevel 1 goto error
     
     python tools\make_figures.py --batch_size "256|512|2048"
@@ -172,13 +172,13 @@ echo Step 4: Compiling Final Paper
 echo ============================================================================
 echo.
 
-cd paper_figures
+cd paper
 
 pdflatex -interaction=nonstopmode paper-draft.tex >nul 2>&1
 pdflatex -interaction=nonstopmode paper-draft.tex >nul 2>&1
 
 if exist paper-draft.pdf (
-    echo [OK] Paper compiled: paper_figures\paper-draft.pdf
+    echo [OK] Paper compiled: paper\paper-draft.pdf
 ) else (
     echo ERROR: paper-draft.pdf not created
     goto error_paper
@@ -192,15 +192,15 @@ echo [SUCCESS] FULL PIPELINE COMPLETED!
 echo ============================================================================
 echo.
 echo Output:
-echo   - Paper:     paper_figures\paper-draft.pdf
-echo   - Tables:    paper_figures\*.tex
-echo   - Figures:   paper_figures\*.pdf
+echo   - Paper:     paper\paper-draft.pdf
+echo   - Tables:    paper\*.tex
+echo   - Figures:   paper\*.pdf
 echo   - Results:   results\summary_statistics.csv
 echo.
 if "%ABLATION_MODE%"=="1" (
     echo Ablation study outputs:
-    echo   - Ablation table: paper_figures\ablation-batch-size.tex
-    echo   - Ablation figures: paper_figures\ablation\*.pdf
+    echo   - Ablation table: paper\ablation-batch-size.tex
+    echo   - Ablation figures: paper\ablation\*.pdf
     echo.
 )
 echo ============================================================================
@@ -232,7 +232,7 @@ exit /b 1
 
 :error_paper
 echo.
-echo [ERROR] Paper compilation failed. Check paper_figures\paper-draft.log
+echo [ERROR] Paper compilation failed. Check paper\paper-draft.log
 pause
 exit /b 1
 
