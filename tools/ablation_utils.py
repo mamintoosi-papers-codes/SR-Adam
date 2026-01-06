@@ -160,7 +160,7 @@ def get_batch_ablation_configs(ablation_enabled, optimizers_requested, default_b
         return [(opt, default_batch_size) for opt in optimizers_requested]
     
     # Ablation enabled
-    batch_sizes = [64, 128, 256, 512, 1024, 2048]
+    batch_sizes = [64, 128, 256, 512, 1024]
     ablation_optimizers = ["Adam", "SR-Adam"]
     
     configs = []

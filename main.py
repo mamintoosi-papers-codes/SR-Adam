@@ -67,6 +67,32 @@ def set_seeds(seed):
         torch.cuda.manual_seed_all(seed)
 
 
+def parse_noise_list(raw):
+    """
+    Parse noise argument similar to optimizer parsing.
+    - "ALL" or "all" -> [0.0, 0.05, 0.1]
+    - "0.05" -> [0.05]
+    - "0.0|0.05|0.1" or "0.0;0.05;0.1" -> [0.0, 0.05, 0.1]
+    """
+    if raw.lower() == "all":
+        return [0.0, 0.05, 0.1]
+    
+    # Try different separators
+    for sep in ["|", ";", "\n"]:
+        if sep in raw:
+            tokens = [t.strip() for t in raw.split(sep) if t.strip()]
+            break
+    else:
+        tokens = [raw.strip()]
+    
+    try:
+        noise_levels = [float(t) for t in tokens]
+    except ValueError as e:
+        raise ValueError(f"Invalid noise value(s): {raw}. Expected numeric values or 'ALL'") from e
+    
+    return noise_levels
+
+
 def parse_optimizer_list(raw, all_names, alias_map):
     if raw.lower() == "all":
         return all_names
@@ -167,7 +193,8 @@ def main():
                         help="Model architecture to use (overrides default per-dataset)")
     parser.add_argument("--batch_size", type=int, default=2048)
     parser.add_argument("--num_epochs", type=int, default=20)
-    parser.add_argument("--noise", type=float, default=0.0)
+    parser.add_argument("--noise", type=str, default="0.0",
+                    help='Noise level(s): "ALL" for [0.0, 0.05, 0.1], or specific value(s) separated by "|" or ";" (e.g., "0.05" or "0.0|0.1")')
 
     parser.add_argument("--num_runs", type=int, default=5,
                         help="Number of independent runs (different seeds)")
@@ -196,13 +223,15 @@ def main():
 
     device = setup_device()
 
-    # Decide dataset list and noise grid
+    # Decide dataset list
     if args.dataset == "ALL":
         dataset_list = ["CIFAR10", "CIFAR100"]
     else:
         dataset_list = [args.dataset]
 
-    noise_levels = [0.0, 0.05, 0.1]
+    # Parse noise levels (new logic with parse_noise_list)
+    noise_levels = parse_noise_list(args.noise)
+    print(f"Noise levels to test: {noise_levels}")
 
     all_optimizer_names = [
         "SGD",
