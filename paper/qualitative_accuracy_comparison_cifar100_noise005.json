@@ -4,7 +4,7 @@
   "random_seed": 2026,
   "aggregated_summary": {},
   "checkpoint_best_selected": {
-    "Adam": 41.13,
+    "Adam": 42.35,
     "SR-Adam": 43.29
   },
   "note": "checkpoint_best_selected shows the single best run accuracy displayed in PDF"
