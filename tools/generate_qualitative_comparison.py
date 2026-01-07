@@ -25,36 +25,49 @@ def load_checkpoint(checkpoint_path, model, device='cpu'):
     return model, checkpoint.get('test_acc', None)
 
 
-def get_best_run(optimizer_name, dataset='CIFAR10', model_name='simplecnn', noise=0.05, runs_root='runs'):
+def get_best_run(optimizer_name, dataset='CIFAR10', model_name='simplecnn', noise=0.05, runs_root='runs', pretrained_dir=None):
     """Find the run with highest best accuracy for given optimizer.
-    
-    Supports both old and new formats:
-    - Old: runs/{dataset}/{model}/noise_{noise}/{optimizer}/run_*_best.pt
-    - New: runs/{dataset}/{model}/noise_{noise}/{optimizer}/batch_size_*/run_*_best.pt
+
+    Behavior:
+    - If `pretrained_dir` is provided, try to load files from there first. Supported filenames:
+      `{optimizer}_best.pt` or `{optimizer}.pt` (case-sensitive, with dash preserved).
+    - Otherwise, search the new-format runs tree under `runs_root`:
+      `runs_root/{dataset}/{model}/noise_{noise}/{optimizer}/batch_size_*/run_*_best.pt`
     """
+
+    # 1) Check pretrained_dir (explicit pretrained models folder)
+    if pretrained_dir:
+        candidates = []
+        # direct optimizer-based filenames
+        candidates.append(Path(pretrained_dir) / f"{optimizer_name}_best.pt")
+        candidates.append(Path(pretrained_dir) / f"{optimizer_name}.pt")
+        # also try sanitized name (replace spaces/slashes)
+        safe_name = optimizer_name.replace('/', '_').replace(' ', '_')
+        candidates.append(Path(pretrained_dir) / f"{safe_name}_best.pt")
+        candidates.append(Path(pretrained_dir) / f"{safe_name}.pt")
+
+        for c in candidates:
+            if c.exists():
+                try:
+                    ckpt = torch.load(c, map_location='cpu')
+                    acc = ckpt.get('test_acc', None)
+                except Exception:
+                    acc = None
+                return c, acc
+
+    # 2) Search in runs_root using new format only
     folder = Path(runs_root) / dataset / model_name / f'noise_{noise}' / optimizer_name
-    
-    if not folder.exists():
-        folder = Path('results') / dataset / model_name / f'noise_{noise}' / optimizer_name
-    
     if not folder.exists():
         raise FileNotFoundError(f"No results found for {optimizer_name} in {folder}")
-    
-    # Find all best checkpoints (supports both old and new formats)
+
     # New format: batch_size_*/run_*_best.pt
     best_files = list(folder.glob('batch_size_*/run_*_best.pt'))
-    
-    # Old format: run_*_best.pt (directly in optimizer folder)
     if not best_files:
-        best_files = list(folder.glob('run_*_best.pt'))
-    
-    if not best_files:
-        raise FileNotFoundError(f"No best checkpoints found in {folder} (tried both batch_size_*/ and direct formats)")
-    
+        raise FileNotFoundError(f"No best checkpoints found under {folder} (expected batch_size_*/run_*_best.pt)")
+
     # Load all and find highest accuracy
     best_acc = -1
     best_path = None
-    
     for f in best_files:
         try:
             ckpt = torch.load(f, map_location='cpu')
@@ -62,9 +75,9 @@ def get_best_run(optimizer_name, dataset='CIFAR10', model_name='simplecnn', nois
             if acc > best_acc:
                 best_acc = acc
                 best_path = f
-        except:
+        except Exception:
             continue
-    
+
     return best_path, best_acc
 
 
@@ -94,7 +107,7 @@ def get_cifar_classes(dataset_name):
 
 def generate_comparison_table(dataset='CIFAR10', noise=0.05, num_samples=10, 
                                save_path='paper/qualitative_comparison.pdf',
-                               runs_root='runs', random_seed=None):
+                               runs_root='runs', pretrained_dir=None, random_seed=None):
     """
     Generate comparison table showing sample images with Adam vs SR-Adam predictions.
     
@@ -132,8 +145,8 @@ def generate_comparison_table(dataset='CIFAR10', noise=0.05, num_samples=10,
     
     # Find best checkpoints for both optimizers
     print("Loading best models...")
-    adam_path, adam_acc = get_best_run('Adam', dataset, 'simplecnn', noise, runs_root)
-    sradam_path, sradam_acc = get_best_run('SR-Adam', dataset, 'simplecnn', noise, runs_root)
+    adam_path, adam_acc = get_best_run('Adam', dataset, 'simplecnn', noise, runs_root, pretrained_dir=pretrained_dir)
+    sradam_path, sradam_acc = get_best_run('SR-Adam', dataset, 'simplecnn', noise, runs_root, pretrained_dir=pretrained_dir)
     
     print(f"\n{'='*60}")
     print(f"LOADED CHECKPOINT ACCURACIES (from best.pt files):")
@@ -242,6 +255,8 @@ if __name__ == "__main__":
                         help='Number of samples to display (default: 10)')
     parser.add_argument('--runs-root', type=str, default='runs',
                         help='Root directory for model checkpoints (default: runs)')
+    parser.add_argument('--pretrained-dir', type=str, default=None,
+                        help='Optional directory with pretrained checkpoints (e.g., pretrained-models). If provided, script will look for {Optimizer}_best.pt or {Optimizer}.pt there first.')
     
     args = parser.parse_args()
     
@@ -284,6 +299,7 @@ if __name__ == "__main__":
         num_samples=args.num_samples,
         save_path=save_path,
         runs_root=args.runs_root,
+        pretrained_dir=args.pretrained_dir,
         random_seed=seed
     )
     
@@ -295,7 +311,7 @@ if __name__ == "__main__":
     checkpoint_accs = {}
     for opt in ['Adam', 'SR-Adam']:
         try:
-            _, acc = get_best_run(opt, dataset, 'simplecnn', noise, args.runs_root)
+            _, acc = get_best_run(opt, dataset, 'simplecnn', noise, args.runs_root, pretrained_dir=args.pretrained_dir)
             checkpoint_accs[opt] = acc
             print(f"{opt}: {acc:.2f}%")
         except Exception as e:

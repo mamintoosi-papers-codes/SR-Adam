@@ -4,6 +4,7 @@ import glob
 import json
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 METHODS = ["Adam", "SR-Adam"]
 DEFAULT_NOISE = "0.05"
@@ -133,7 +134,15 @@ def build_ablation_tables(dataset, model, noise, optimizers=None, batch_sizes=No
     doc.append("")
     doc.append(_table_tex("Final test accuracy (mean $\\pm$ std) vs batch size", values_final, flags_final, "final"))
     doc.append(_table_tex("Best test accuracy over epochs (mean $\\pm$ std) vs batch size", values_best, flags_best, "best"))
-    return "\n".join(doc)
+    stats = {
+        "batch_sizes": batch_sizes,
+        "values_final": values_final,
+        "values_best": values_best,
+        "flags_final": flags_final,
+        "flags_best": flags_best,
+        "optimizers": optimizers,
+    }
+    return "\n".join(doc), stats
 
 
 def main():
@@ -149,12 +158,53 @@ def main():
     optimizers = args.optimizers.split("|") if args.optimizers else METHODS
     batch_sizes = [int(x) for x in args.batch_sizes.split(",") if x.strip().isdigit()] if args.batch_sizes else None
 
-    tex = build_ablation_tables(args.dataset, args.model, args.noise, optimizers, batch_sizes)
+    tex, stats = build_ablation_tables(args.dataset, args.model, args.noise, optimizers, batch_sizes)
 
     out_path = os.path.join(OUT_DIR, f"ablation_bs_{args.dataset}_noise{args.noise.replace('.', 'p')}.tex")
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(tex)
     print(f"Wrote ablation table(s) to {out_path}")
+
+    # Also produce a plot for best accuracies vs batch size
+    try:
+        def _make_ablation_plot(stats, dataset, noise, out_dir=OUT_DIR):
+            colors = {
+                "SGD": "#1f77b4",
+                "Momentum": "#ff7f0e",
+                "Adam": "#2ca02c",
+                "SR-Adam": "#d62728",
+            }
+            batch_sizes = stats["batch_sizes"]
+            optimizers = stats["optimizers"]
+            values_best = stats["values_best"]
+
+            plt.figure(figsize=(7, 4))
+            for opt in optimizers:
+                means = [values_best[opt].get(bs, (np.nan, np.nan))[0] for bs in batch_sizes]
+                stds = [values_best[opt].get(bs, (np.nan, np.nan))[1] for bs in batch_sizes]
+                col = colors.get(opt, None)
+                plt.errorbar(batch_sizes, means, yerr=stds, marker="o", label=opt, color=col, capsize=4)
+
+            plt.xlabel("Batch size")
+            plt.ylabel("Best test accuracy (%)")
+            plt.title(f"Best test accuracy vs batch size — {dataset} (noise={noise})")
+            plt.xticks(batch_sizes)
+            plt.grid(alpha=0.25)
+            plt.legend()
+
+            filename = f"{dataset.lower()}_noise{noise}_acc_mean_std.pdf"
+            out_file = os.path.join(out_dir, filename)
+            plt.tight_layout()
+            plt.savefig(out_file)
+            # Also save PNG for quick previews
+            png_file = os.path.join(out_dir, f"{dataset.lower()}_noise{noise}_acc_mean_std.png")
+            plt.savefig(png_file)
+            plt.close()
+            print(f"Wrote ablation plot(s) to {out_file} and {png_file}")
+
+        _make_ablation_plot(stats, args.dataset, args.noise)
+    except Exception as e:
+        print(f"Failed to produce ablation plot: {e}")
 
 
 if __name__ == "__main__":
