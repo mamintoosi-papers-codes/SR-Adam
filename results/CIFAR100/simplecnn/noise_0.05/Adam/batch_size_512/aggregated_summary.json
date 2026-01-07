@@ -1,12 +1,25 @@
 {
-  "dataset": "CIFAR100",
-  "model": "simplecnn",
-  "noise": 0.05,
-  "optimizer": "Adam",
+  "num_runs": 5,
   "batch_size": 512,
   "final_test_acc_mean": 40.19199999999999,
-  "final_test_acc_std": 0.6734018116993743,
+  "final_test_acc_std": 0.6023088908525256,
   "best_test_acc_mean": 40.245999999999995,
-  "best_test_acc_std": 0.6709918032286252,
-  "num_runs": 5
+  "best_test_acc_std": 0.6001533137457474,
+  "statistical_tests": [
+    {
+      "comparison": "Adam vs SR-Adam",
+      "optimizer_1": "Adam",
+      "optimizer_2": "SR-Adam",
+      "n_runs": 3,
+      "mean_1": 37.92666666666667,
+      "std_1": 0.39877590476635016,
+      "mean_2": 40.876666666666665,
+      "std_2": 0.3423773097362362,
+      "mean_diff": -2.949999999999998,
+      "t_test_statistic": -15.28818948372377,
+      "t_test_pvalue": 0.004251200502200393,
+      "wilcoxon_statistic": 0.0,
+      "wilcoxon_pvalue": 0.25
+    }
+  ]
 }
