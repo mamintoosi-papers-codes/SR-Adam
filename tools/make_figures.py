@@ -32,7 +32,7 @@ def get_optimizer_order():
         "Momentum",
         "Adam",
         "SR-Adam",
-        # "SR-Adam-All-Weights",
+        "SR-Adam-All-Weights",
     ]
 
 def get_optimizer_colors():
@@ -42,7 +42,7 @@ def get_optimizer_colors():
         "Momentum": "#ff7f0e",
         "Adam": "#2ca02c",
         "SR-Adam": "#d62728",
-        # "SR-Adam-All-Weights": "#9467bd",
+        "SR-Adam-All-Weights": "#9467bd",
     }
     return colors
 

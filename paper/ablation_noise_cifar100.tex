@@ -1,0 +1,14 @@
+\begin{table}[t]
+  \centering
+  \begin{tabular}{lccc}
+    \toprule
+    Method & Noise=0.0 & Noise=0.05 & Noise=0.1 \\
+    \midrule
+    Adam & 40.85 $\pm$ 0.62 & 40.25 $\pm$ 0.67 & 39.14 $\pm$ 0.61 \\
+    SR-Adam & \textbf{42.74 $\pm$ 1.21} & \textbf{41.50 $\pm$ 1.34} & \textbf{40.43 $\pm$ 0.33} \\
+    SR-Adam-All-Weights & 34.99 $\pm$ 0.53 & 33.74 $\pm$ 0.64 & 33.03 $\pm$ 0.74 \\
+    \bottomrule
+  \end{tabular}
+  \caption{Effect of noise level on best test accuracy (mean $\pm$ std) at batch size 512 on CIFAR100.}
+  \label{tab:ablation-noise-cifar100}
+\end{table}
