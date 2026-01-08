@@ -238,8 +238,6 @@ Figure generators (tools/):
 
 Paper:
 └── paper/paper-draft.tex
-  ├── \input{simplecnn_arch_content.tex}
-  ├── \input{sradam_grouping_content.tex}
   ├── \input{experimental_figures.tex}
   └── \input{minimal-tables-content.tex}
 
