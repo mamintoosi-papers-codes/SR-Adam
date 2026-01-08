@@ -1,0 +1,21 @@
+% Auto-generated training time report
+\usepackage{booktabs}
+
+% CIFAR10 (batch_size=512)
+\begin{table}[t]
+\centering
+\begin{tabular}{lcc}
+\toprule
+Optimizer & Mean Epoch Time (s) & Mean Total Time (s) \\
+\midrule
+SGD & 29.32 $\pm$ 0.06 & 586.4 $\pm$ 1.2 \\
+Momentum & 29.38 $\pm$ 0.03 & 587.7 $\pm$ 0.5 \\
+Adam & 29.51 $\pm$ 0.03 & 590.1 $\pm$ 0.5 \\
+SR-Adam & 29.70 $\pm$ 0.03 & 594.0 $\pm$ 0.7 \\
+SR-Adam-All-Weights & 29.80 $\pm$ 0.05 & 596.0 $\pm$ 1.0 \\
+\bottomrule
+\end{tabular}
+\caption{Mean training time per optimizer on CIFAR10 (batch\_size=512).}
+\label{tab:train_time_cifar10_bs512}
+\end{table}
+

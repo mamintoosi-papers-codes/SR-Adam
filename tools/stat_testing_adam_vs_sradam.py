@@ -114,15 +114,16 @@ def main():
     print(df.to_string(index=False))
 
     # outputs
+    ds_suf = "_ds" + "-".join(str(ds) for ds in sorted(datasets))
     bs_suf = "_bs" + "-".join(str(bs) for bs in sorted(batch_sizes))
     if args.output_csv is None:
-        args.output_csv = f"paper/stat_tests_adam_vs_sradam{bs_suf}.csv"
+        args.output_csv = f"paper/stat_tests_adam_vs_sradam{ds_suf}{bs_suf}.csv"
     Path(args.output_csv).parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(args.output_csv, index=False)
     print(f"Saved CSV: {args.output_csv}")
 
     if args.output_tex is None:
-        args.output_tex = f"paper/stat_tests_adam_vs_sradam{bs_suf}.tex"
+        args.output_tex = f"paper/stat_tests_adam_vs_sradam_{ds_suf}{bs_suf}.tex"
     lines = ["% Auto-generated Adam vs SR-Adam stat tests\n", "\\usepackage{booktabs}\n\n"]
     for ds in datasets:
         lines.append(f"% {ds}\n")

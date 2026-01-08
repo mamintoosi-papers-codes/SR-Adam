@@ -1,0 +1,19 @@
+% Auto-generated Adam vs SR-Adam stat tests
+\usepackage{booktabs}
+
+% CIFAR100
+\begin{table}[t]
+\centering
+\begin{tabular}{lcccccc}
+\toprule
+Noise & Batch & n & Adam Mean & SR-Adam Mean & t p-val & Wilcoxon p-val \\
+\midrule
+0.0 & 512 & 5 & 40.85 & 42.74 & 0.00377 & 0.0625 \\
+0.05 & 512 & 5 & 40.25 & 41.50 & 0.0737 & 0.0625 \\
+0.1 & 512 & 5 & 39.14 & 40.43 & 0.00165 & 0.0625 \\
+\bottomrule
+\end{tabular}
+\caption{Paired tests (mode=best) for Adam vs SR-Adam on CIFAR100}
+\label{tab:stat_adam_sradam_cifar100}
+\end{table}
+
