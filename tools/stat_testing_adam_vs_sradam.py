@@ -116,13 +116,13 @@ def main():
     # outputs
     bs_suf = "_bs" + "-".join(str(bs) for bs in sorted(batch_sizes))
     if args.output_csv is None:
-        args.output_csv = f"paper_figures/stat_tests_adam_vs_sradam{bs_suf}.csv"
+        args.output_csv = f"paper/stat_tests_adam_vs_sradam{bs_suf}.csv"
     Path(args.output_csv).parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(args.output_csv, index=False)
     print(f"Saved CSV: {args.output_csv}")
 
     if args.output_tex is None:
-        args.output_tex = f"paper_figures/stat_tests_adam_vs_sradam{bs_suf}.tex"
+        args.output_tex = f"paper/stat_tests_adam_vs_sradam{bs_suf}.tex"
     lines = ["% Auto-generated Adam vs SR-Adam stat tests\n", "\\usepackage{booktabs}\n\n"]
     for ds in datasets:
         lines.append(f"% {ds}\n")
@@ -132,8 +132,12 @@ def main():
         for _, r in sub.iterrows():
             lines.append(f"{r.noise} & {int(r.batch_size)} & {int(r.n_pairs)} & {r.adam_mean:.2f} & {r.sradam_mean:.2f} & {r.ttest_p:.3g} & {r.wilcoxon_p:.3g} \\\\\n")
         lines.append("\\bottomrule\n\\end{tabular}\n")
-        lines.append(f"\\caption{{Paired tests (mode={args.mode}) for Adam vs SR-Adam on {ds}}}\n")
-        lines.append(f"\\label{{tab:stat_adam_sradam_{ds.lower()}}}\n\\end{table}\n\n")
+        # Avoid f-strings to keep LaTeX braces literal
+        lines.append("\\caption{Paired tests (mode=%s) for Adam vs SR-Adam on %s}\n" % (args.mode, ds))
+        lines.append("\\label{tab:stat_adam_sradam_%s}\n\\end{table}\n\n" % (ds.lower()))
     with open(args.output_tex, "w", encoding="utf-8") as f:
         f.writelines(lines)
     print(f"Saved LaTeX: {args.output_tex}")
+
+if __name__ == "__main__":
+    main()

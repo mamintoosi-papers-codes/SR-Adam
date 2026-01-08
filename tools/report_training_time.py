@@ -100,20 +100,24 @@ def main():
 
     # CSV
     if args.output_csv is None:
-        args.output_csv = f"paper_figures/training_time_report{bs_suffix(batch_sizes)}.csv"
+        args.output_csv = f"paper/training_time_report{bs_suffix(batch_sizes)}.csv"
     Path(args.output_csv).parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(args.output_csv, index=False)
     print(f"Saved CSV: {args.output_csv}")
 
     # LaTeX (per dataset × batch_size for the given noise levels)
     if args.output_tex is None:
-        args.output_tex = f"paper_figures/training_time_report{bs_suffix(batch_sizes)}.tex"
+        args.output_tex = f"paper/training_time_report{bs_suffix(batch_sizes)}.tex"
     lines = ["% Auto-generated training time report\n", "\\usepackage{booktabs}\n\n"]
     for dataset in datasets:
         for bs in batch_sizes:
             lines.append(f"% {dataset} (batch_size={bs})\n")
-            lines.append("\\begin{table}[t]\n\\centering\n\\begin{tabular}{lcc}\n\\toprule\n")
-            lines.append("Optimizer & Mean Epoch Time (s) & Mean Total Time (s) \\\\\n\\midrule\n")
+            lines.append("\\begin{table}[t]\n")
+            lines.append("\\centering\n")
+            lines.append("\\begin{tabular}{lcc}\n")
+            lines.append("\\toprule\n")
+            lines.append("Optimizer & Mean Epoch Time (s) & Mean Total Time (s) \\\\\n")
+            lines.append("\\midrule\n")
             sub = df[(df.dataset == dataset) & (df.batch_size == bs)]
             # enforce optimizer order
             for opt in get_optimizer_order():
@@ -122,10 +126,17 @@ def main():
                     continue
                 r = row.iloc[0]
                 lines.append(f"{opt} & {r.mean_epoch_time:.2f} $\\pm$ {r.std_epoch_time:.2f} & {r.mean_total_time:.1f} $\\pm$ {r.std_total_time:.1f} \\\\\n")
-            lines.append("\\bottomrule\n\\end{tabular}\n")
-            lines.append(f"\\caption{{Mean training time per optimizer on {dataset} (batch\\_size={bs}).}}\n")
-            lines.append(f"\\label{{tab:train_time_{dataset.lower()}_bs{bs}}}\n\\end{table}\n\n")
+            lines.append("\\bottomrule\n")
+            lines.append("\\end{tabular}\n")
+            # Avoid f-strings to keep LaTeX braces literal
+            lines.append("\\caption{Mean training time per optimizer on %s (batch\\_size=%d).}\n" % (dataset, bs))
+            lines.append("\\label{tab:train_time_%s_bs%d}\n" % (dataset.lower(), bs))
+            lines.append("\\end{table}\n\n")
+
     Path(args.output_tex).parent.mkdir(parents=True, exist_ok=True)
     with open(args.output_tex, "w", encoding="utf-8") as f:
         f.writelines(lines)
     print(f"Saved LaTeX: {args.output_tex}")
+
+if __name__ == "__main__":
+    main()
