@@ -1,4 +1,4 @@
-# SR-Adam: Stein-Rule Adaptive Moment Estimation
+# Stein-Rule Shrinkage for Stochastic Gradient Estimation in High Dimensions
 
 Experimental implementations of **Stein-rule–based gradient shrinkage** for deep learning optimization, studying how classical high-dimensional shrinkage estimation (James–Stein, Preliminary Test) can improve stochastic optimization in modern deep neural networks.
 
@@ -203,8 +203,8 @@ If you use this code in your research, please cite:
 
 ```bibtex
 @misc{sr-adam,
-  title={SR-Adam: Stein-Rule Adaptive Moment Estimation},
-  author={M.Arashi},
+  title={Stein-Rule Shrinkage for Stochastic Gradient Estimation in High Dimensions},
+  author={M. Arashi and M. Amintoosi},
   year={2026},
   url={https://github.com/mamintoosi-papers-codes/SR-Adam}
 }
