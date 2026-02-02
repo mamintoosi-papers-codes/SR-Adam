@@ -6,9 +6,9 @@ Experimental implementations of **Stein-rule–based gradient shrinkage** for de
 
 ## Quick Start
 
-Open in Colab (runs `main.ipynb`):
+<!-- Open in Colab (runs `main.ipynb`):
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mamintoosi-papers-codes/SR-Adam/blob/main/main.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mamintoosi-papers-codes/SR-Adam/blob/main/main.ipynb) -->
 
 ```bash
 # Windows: run full pipeline (experiments → aggregates → tables/figures → paper)
