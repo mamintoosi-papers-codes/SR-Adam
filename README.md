@@ -103,7 +103,7 @@ Where:
 ## Expected Performance (Summary)
 
 - On clean CIFAR10/CIFAR100, SR-Adam matches Adam within noise, staying competitive with standard baselines.
-- Under label noise (0.05–0.1), SR-Adam typically improves test accuracy by roughly 1–3 percentage points over Adam/Momentum with SimpleCNN, reflecting better stability of noisy gradients.
+- Under input noise (0.05–0.1), SR-Adam typically improves test accuracy by roughly 1–3 percentage points over Adam/Momentum with SimpleCNN, reflecting better stability of noisy gradients.
 - Variance across runs remains similar to Adam; seed-averaged mean ± std is reported in the generated tables.
 
 ---
@@ -155,7 +155,7 @@ runs/
 
 ### Fairness and Reproducibility
 - Identical training protocol across methods; only the optimizer differs.
-- Fixed backbone, epochs, batch size, label-noise schedule, evaluation, and seed plan.
+- Fixed backbone, epochs, batch size, input-noise schedule, evaluation, and seed plan.
 - In-house implementations with matching interfaces; no third-party optimizer packages used.
 - Public repository with executable code: https://github.com/mamintoosi-papers-codes/SR-Adam
 
@@ -179,36 +179,6 @@ pip install -r requirements-cpu.txt
 pip install torch torchvision matplotlib numpy pandas openpyxl tqdm seaborn scipy
 ```
 
----
-
-## Research Context
-
-This code accompanies research on:
-- High-dimensional shrinkage estimation
-- Statistical risk reduction in stochastic optimization
-- Bridging classical estimation theory and deep learning
-
-The implementations are intentionally explicit to support experimentation and theoretical inspection.
-
-### Key References
-- **Stein (1956)** - Inadmissibility of the usual estimator
-- **James & Stein (1961)** - Estimation with quadratic loss
-- **Kingma & Ba (2014)** - Adam: A Method for Stochastic Optimization
-
----
-
-## Citation
-
-If you use this code in your research, please cite:
-
-```bibtex
-@misc{sr-adam,
-  title={Stein-Rule Shrinkage for Stochastic Gradient Estimation in High Dimensions},
-  author={M. Arashi and M. Amintoosi},
-  year={2026},
-  url={https://github.com/mamintoosi-papers-codes/SR-Adam}
-}
-```
 
 ---
 
@@ -257,4 +227,39 @@ All result processing scripts support optional filters for flexible analysis:
 --noise         Specific noise level(s) or ALL (default: ALL)
 --batch_size    Specific batch size(s) or ALL (default: ALL for aggregation, 512 for tables)
 --optimizers    Specific optimizer(s) or ALL (default: ALL)
+```
+
+
+---
+
+## Research Context
+
+This code accompanies research on:
+- High-dimensional shrinkage estimation
+- Statistical risk reduction in stochastic optimization
+- Bridging classical estimation theory and deep learning
+
+The implementations are intentionally explicit to support experimentation and theoretical inspection.
+
+### Key References
+- **Stein (1956)** - Inadmissibility of the usual estimator
+- **James & Stein (1961)** - Estimation with quadratic loss
+- **Kingma & Ba (2014)** - Adam: A Method for Stochastic Optimization
+
+---
+
+## Citation
+
+If you use this code in your research, please cite:
+
+```bibtex
+@misc{arashi2026steinrule,  
+	title={Stein-Rule Shrinkage for Stochastic Gradient Estimation in High Dimensions},  
+	author={Arashi, M. and Amintoosi, M.},  
+	year={2026},  
+	eprint={2602.01777},  
+	archivePrefix={arXiv},  
+	primaryClass={cs.LG},  
+	url={https://arxiv.org/abs/2602.01777}
+}
 ```
