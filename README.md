@@ -73,15 +73,6 @@ Where:
 - $p$ = dimensionality
 - $\sigma^2$ = noise variance (estimated adaptively from Adam moments)
 
----
-
-## Key Features
-
-✅ **Modular Architecture** - 6 independent Python modules  
-✅ **Automatic Result Saving** - CSV, Excel, JSON, plots after each epoch  
-✅ **Numerical Stability** - 5 critical bugs fixed in SR-Adam implementation  
-✅ **Mixed Precision** - AMP support for faster training  
-✅ **Reproducibility** - Seed tracking, comprehensive configs  
 
 ---
 
@@ -98,13 +89,6 @@ Where:
 | `--noise` | `0.0` | Ignored: noise levels are processed automatically in `main.py` |
 | `--base_seed` | `42` | Base seed; per-run seeds = base+run_index |
 
----
-
-## Expected Performance (Summary)
-
-- On clean CIFAR10/CIFAR100, SR-Adam matches Adam within noise, staying competitive with standard baselines.
-- Under input noise (0.05–0.1), SR-Adam typically improves test accuracy by roughly 1–3 percentage points over Adam/Momentum with SimpleCNN, reflecting better stability of noisy gradients.
-- Variance across runs remains similar to Adam; seed-averaged mean ± std is reported in the generated tables.
 
 ---
 
@@ -238,13 +222,6 @@ This code accompanies research on:
 - High-dimensional shrinkage estimation
 - Statistical risk reduction in stochastic optimization
 - Bridging classical estimation theory and deep learning
-
-The implementations are intentionally explicit to support experimentation and theoretical inspection.
-
-### Key References
-- **Stein (1956)** - Inadmissibility of the usual estimator
-- **James & Stein (1961)** - Estimation with quadratic loss
-- **Kingma & Ba (2014)** - Adam: A Method for Stochastic Optimization
 
 ---
 

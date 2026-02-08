@@ -1,6 +1,8 @@
 # Model checkpoints and training runs (large files)
 runs/
+runs_2025/
 models/
+tmp/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
